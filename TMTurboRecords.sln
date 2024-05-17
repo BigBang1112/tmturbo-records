@@ -3,9 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34902.65
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TMTurboRecords", "TMTurboRecords\TMTurboRecords\TMTurboRecords.csproj", "{A49F8044-B9FB-4610-B697-80FB79290FF5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TMTurboRecords", "TMTurboRecords\TMTurboRecords\TMTurboRecords.csproj", "{A49F8044-B9FB-4610-B697-80FB79290FF5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TMTurboRecords.Client", "TMTurboRecords\TMTurboRecords.Client\TMTurboRecords.Client.csproj", "{E8486BEF-A3F3-4DB8-B5E2-9542D99256A0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TMTurboRecords.Client", "TMTurboRecords\TMTurboRecords.Client\TMTurboRecords.Client.csproj", "{E8486BEF-A3F3-4DB8-B5E2-9542D99256A0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TMTurboRecords.Shared", "TMTurboRecords.Shared\TMTurboRecords.Shared.csproj", "{330E9010-68A7-4D9C-82A3-B1ECB1D8BB5E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{E8486BEF-A3F3-4DB8-B5E2-9542D99256A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E8486BEF-A3F3-4DB8-B5E2-9542D99256A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E8486BEF-A3F3-4DB8-B5E2-9542D99256A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{330E9010-68A7-4D9C-82A3-B1ECB1D8BB5E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{330E9010-68A7-4D9C-82A3-B1ECB1D8BB5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{330E9010-68A7-4D9C-82A3-B1ECB1D8BB5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{330E9010-68A7-4D9C-82A3-B1ECB1D8BB5E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

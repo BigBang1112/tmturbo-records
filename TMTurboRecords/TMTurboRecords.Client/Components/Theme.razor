@@ -1,0 +1,36 @@
+﻿<MudThemeProvider @ref="@_mudThemeProvider" @bind-IsDarkMode="@IsDarkMode" Theme="_theme" />
+
+<MudToggleIconButton @bind-Toggled="@IsLightMode"
+                     Icon="@Icons.Material.Outlined.Lightbulb"
+                     ToggledIcon="@Icons.Material.Filled.Lightbulb"
+                     Color="Color.Warning" />
+
+@code {
+    private MudTheme _theme = new();
+    private MudThemeProvider? _mudThemeProvider;
+
+    public bool IsDarkMode { get; set; } = true;
+    public bool IsLightMode { get => !IsDarkMode; set => IsDarkMode = !value; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            if (_mudThemeProvider is null)
+            {
+                return;
+            }
+
+            IsDarkMode = await _mudThemeProvider.GetSystemPreference();
+            await _mudThemeProvider.WatchSystemPreference(OnSystemPreferenceChanged);
+            StateHasChanged();
+        }
+    }
+
+    private Task OnSystemPreferenceChanged(bool newValue)
+    {
+        IsDarkMode = newValue;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+}

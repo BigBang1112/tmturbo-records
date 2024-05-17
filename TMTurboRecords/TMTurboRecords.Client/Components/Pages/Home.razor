@@ -1,0 +1,92 @@
+﻿@page "/"
+@using TMTurboRecords.Shared.Models
+@rendermode InteractiveWebAssembly
+
+<PageTitle>Trackmania Turbo Records</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium">
+    <MudStack>
+        <MudText Typo="Typo.h4">Trackmania Turbo Records</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudChipSet SelectedChipsChanged="SelectedPlatformsChangedAsync" Filter="true" Mandatory="true" MultiSelection="true">
+                <MudChip Icon="fas fa-computer" CheckedIcon="fas fa-computer" Text="pc" SelectedColor="Color.Primary" Default="true">&nbsp;&nbsp;PC</MudChip>
+                <MudChip Icon="fab fa-xbox" CheckedIcon="fab fa-xbox" SelectedColor="Color.Success" Text="xb1" Default="true">Xbox One</MudChip>
+                <MudChip Icon="fab fa-playstation" CheckedIcon="fab fa-playstation" Text="ps4" SelectedColor="Color.Info" Default="true">&nbsp;PS4</MudChip>
+            </MudChipSet>
+            <MudSpacer />
+            <Theme></Theme>
+        </MudStack>
+        <MudStack Row="true" Wrap="Wrap.Wrap">
+            <MudPaper Width="75px">
+                <MudNumericField ValueChanged="MapNumberChangedAsync"
+                                 T="int?"
+                                 Label="Map #"
+                                 Placeholder="@mapNumberPlaceholder"
+                                 Variant="Variant.Outlined"
+                                 HideSpinButtons="true"
+                                 Min="1"
+                                 Max="200"></MudNumericField>
+            </MudPaper>
+            <MudTextField ValueChanged="MapUidChangedAsync" T="string" Label="UID" Variant="Variant.Outlined"></MudTextField>
+            <MudSelect ValueChanged="ZoneChangedAsync" T="string" Label="Zone" Variant="Variant.Filled" Placeholder="World">
+                @foreach (var zone in Zones)
+                {
+                    <MudSelectItem Value="@zone.Key">@zone.Value.DisplayName</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStack>
+        <MudDivider />
+        <MudTable Items="@Records" Hover="true" Breakpoint="Breakpoint.None" Loading="@TableLoading" LoadingProgressColor="Color.Info">
+            <HeaderContent>
+                <MudTh>Rank</MudTh>
+                <MudTh>Time</MudTh>
+                <MudTh>Platform</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Rank">1</MudTd>
+                <MudTd DataLabel="Time">@context.Time</MudTd>
+                <MudTd DataLabel="Platform">@context.Platform</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudStack>
+</MudContainer>
+<MudScrollToTop>
+    <MudFab Color="Color.Tertiary" StartIcon="@Icons.Material.Filled.ArrowCircleUp" />
+</MudScrollToTop>
+
+@code {
+    int? mapNumber;
+    string mapNumberPlaceholder = Random.Shared.Next(1, 201).ToString();
+    string? mapUid;
+
+    public Dictionary<string, Zone> Zones { get; set; } = new();
+
+    public List<Record> Records { get; set; } = new();
+
+    public bool TableLoading { get; set; }
+
+    private async Task SelectedPlatformsChangedAsync(MudChip[] chips)
+    {
+        await CheckRecordsAsync();
+    }
+
+    private async Task MapNumberChangedAsync(int? number)
+    {
+        await CheckRecordsAsync();
+    }
+
+    private async Task MapUidChangedAsync(string mapUid)
+    {
+        await CheckRecordsAsync();
+    }
+
+    private async Task ZoneChangedAsync(string zone)
+    {
+        await CheckRecordsAsync();
+    }
+
+    public async Task CheckRecordsAsync()
+    {
+        
+    }
+}

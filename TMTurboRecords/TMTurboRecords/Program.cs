@@ -4,6 +4,7 @@ using TMTurboRecords;
 using TMTurboRecords.Components;
 using TMTurboRecords.Extensions;
 using TMTurboRecords.Services;
+using TMTurboRecords.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 

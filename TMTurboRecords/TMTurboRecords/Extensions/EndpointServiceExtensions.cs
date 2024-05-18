@@ -8,6 +8,7 @@ internal static class EndpointServiceExtensions
     {
         services.AddSingleton<IEndpoint, ZoneEndpoint>();
         services.AddSingleton<IEndpoint, MapEndpoint>();
+        services.AddSingleton<IEndpoint, RecordEndpoint>();
         return services;
     }
 

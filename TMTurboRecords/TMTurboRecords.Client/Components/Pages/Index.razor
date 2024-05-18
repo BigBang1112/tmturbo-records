@@ -1,0 +1,310 @@
+﻿@page "/{map?}/{zone?}"
+@rendermode InteractiveWebAssembly
+
+@inject HttpClient Http
+@inject NavigationManager NavManager
+@inject IServiceProvider ServiceProvider
+
+<PageTitle>Trackmania Turbo Records</PageTitle>
+
+@{
+    if (MapName is null && MapUid is null && Map is not null)
+    {
+        if (KnownMaps.ByName.TryGetValue(Map, out var uid))
+        {
+            MapName = Map;
+            MapUid = uid;
+        }
+        else if (KnownMaps.ByUid.TryGetValue(Map, out var name))
+        {
+            MapName = name;
+            MapUid = Map;
+        }
+        else
+        {
+            MapName = null;
+            MapUid = Map;
+        }
+    }
+}
+
+<MudContainer MaxWidth="MaxWidth.Medium">
+    <MudStack>
+        <MudText Typo="Typo.h4">Trackmania Turbo Records</MudText>
+        <MudText>An open source remake of the <MudLink Href="https://maschell.de/tmt_rankings.php">Maschell TMT rankings</MudLink> site. Type the map number/UID to load the records.</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudChipSet SelectedChipsChanged="SelectedPlatformsChangedAsync" Filter="true" MultiSelection="true">
+                <MudChip Icon="fas fa-computer" CheckedIcon="fas fa-computer" Text="pc" SelectedColor="Color.Primary" Default="true">&nbsp;&nbsp;PC</MudChip>
+                <MudChip Icon="fab fa-xbox" CheckedIcon="fab fa-xbox" SelectedColor="Color.Success" Text="xb1" Default="true">Xbox One</MudChip>
+                <MudChip Icon="fab fa-playstation" CheckedIcon="fab fa-playstation" Text="ps4" SelectedColor="Color.Info" Default="true">&nbsp;PS4</MudChip>
+            </MudChipSet>
+            <MudSpacer />
+            <Theme></Theme>
+            <MudTooltip Text="API">
+                <MudIconButton Icon="@Icons.Material.Rounded.Api" Href="/scalar/v1" />
+            </MudTooltip>
+            <MudTooltip Text="Docker">
+                <MudIconButton Icon="fab fa-docker" Href="https://hub.docker.com/r/bigbang1112/tmturbo-records" />
+            </MudTooltip>
+            <MudTooltip Text="GitHub">
+                <MudIconButton Icon="@Icons.Custom.Brands.GitHub" Href="https://github.com/BigBang1112/tmturbo-records" />
+            </MudTooltip>
+        </MudStack>
+        <MudStack Row="true" Wrap="Wrap.Wrap">
+            <MudAutocomplete ValueChanged="MapNameChangedAsync"
+                             Value="MapName"
+                             T="string"
+                             Label="Map"
+                             Variant="Variant.Filled"
+                             SearchFunc="SearchMapsAsync"></MudAutocomplete>
+            <MudTextField ValueChanged="MapUidChangedAsync"
+                          Value="MapUid"
+                          T="string"
+                          Label="UID"
+                          Variant="Variant.Filled"></MudTextField>
+            <MudAutocomplete ValueChanged="ZoneChangedAsync"
+                             Value="Zone"
+                             T="string"
+                             Label="Zone"
+                             Variant="Variant.Filled"
+                             Placeholder="World"
+                             SearchFunc="SearchZonesAsync"></MudAutocomplete>
+        </MudStack>
+        <MudDivider />
+        <MudDataGrid Items="@Records" Hover="true" Breakpoint="Breakpoint.None" Loading="@TableLoading" LoadingProgressColor="Color.Info">
+            <Columns>
+                <PropertyColumn Property="x => x.Rank" Title="Rank" />
+                <PropertyColumn Property="x => x.Time" Title="Time" />
+                <PropertyColumn Property="x => x.Platform" Title="Platforms" />
+            </Columns>
+        </MudDataGrid>
+    </MudStack>
+</MudContainer>
+<MudScrollToTop>
+    <MudFab Color="Color.Tertiary" StartIcon="@Icons.Material.Filled.ArrowCircleUp" />
+</MudScrollToTop>
+
+@code {
+    [Parameter]
+    public string? Map { get; set; }
+
+    [Parameter]
+    public string? Zone { get; set; }
+
+    public Platform Platforms { get; set; } = Platform.PC | Platform.XB1 | Platform.PS4;
+    public string? MapName { get; set; }
+    public string? MapUid { get; set; }
+
+    public Dictionary<string, Zone>? Zones { get; set; }
+
+    public List<Record> Records { get; set; } = new();
+
+    public bool TableLoading { get; set; }
+
+    public RecordParameters? RequestParameters { get; set; }
+
+    private CancellationTokenSource? recordLoadingTokenSource;
+
+    private async Task<IEnumerable<string>> SearchZonesAsync(string value)
+    {
+        Zones ??= await Http.GetFromJsonAsync<Dictionary<string, Zone>>("api/zones") ?? [];
+
+        // if text is null or empty, show complete list
+        if (string.IsNullOrEmpty(value))
+        {
+            return Zones.Select(x => x.Key);
+        }
+
+        return Zones.Where(x => x.Key.Contains(value, StringComparison.InvariantCultureIgnoreCase)).Select(x => x.Key);
+    }
+
+    private Task<IEnumerable<string>> SearchMapsAsync(string value)
+    {
+        // if text is null or empty, show complete list
+        if (string.IsNullOrEmpty(value))
+        {
+            return Task.FromResult(KnownMaps.ByName.Keys.AsEnumerable());
+        }
+
+        return Task.FromResult(KnownMaps.ByName.Keys.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)));
+    }
+
+    private bool selectedPlatformsReady;
+    private async Task SelectedPlatformsChangedAsync(MudChip[] chips)
+    {
+        if (!selectedPlatformsReady)
+        {
+            if (chips.Length != 3)
+            {
+                return;
+            }
+
+            selectedPlatformsReady = true;
+            return;
+        }
+
+        Platforms = Platform.None;
+
+        foreach (var chip in chips)
+        {
+            Platforms |= chip.Text switch
+            {
+                "pc" => Platform.PC,
+                "xb1" => Platform.XB1,
+                "ps4" => Platform.PS4,
+                _ => Platform.None
+            };
+        }
+
+        CheckRecords();
+    }
+
+    private async Task MapNameChangedAsync(string? name)
+    {
+        MapName = name;
+
+        if (name is not null && KnownMaps.ByName.TryGetValue(name, out var uid))
+        {
+            MapUid = uid;
+        }
+
+        CheckRecords();
+    }
+
+    private async Task MapUidChangedAsync(string? mapUid)
+    {
+        MapUid = mapUid;
+        MapName = null;
+
+        if (mapUid is not null && KnownMaps.ByUid.TryGetValue(mapUid, out var name))
+        {
+            MapName = name;
+        }
+
+        CheckRecords();
+    }
+
+    private async Task ZoneChangedAsync(string zone)
+    {
+        Zone = zone;
+        CheckRecords();
+    }
+
+    public void CheckRecords()
+    {
+        if (string.IsNullOrWhiteSpace(MapUid))
+        {
+            return;
+        }
+
+        var parameters = new RecordParameters(Platforms, MapUid, Zone);
+
+        if (RequestParameters == parameters)
+        {
+            return;
+        }
+
+        RequestParameters = parameters;
+
+        if (Cache.CachedRecords.TryGetValue(GetCachedRecordsKey(), out CachedRecords? cachedRecords))
+        {
+            Records = cachedRecords.Records;
+
+            if (DateTimeOffset.Now - cachedRecords.RequestedAt < TimeSpan.FromMinutes(5))
+            {
+                return;
+            }
+        }
+
+        RequestRecords();
+    }
+
+    private string GetCachedRecordsKey() => $"{MapUid}_{(string.IsNullOrWhiteSpace(Zone) ? "World" : Zone)}";
+
+    private void RequestRecords()
+    {
+        TableLoading = true;
+
+        var sb = new System.Text.StringBuilder("api/records?map=");
+        sb.Append(MapUid);
+
+        if (Platforms != Platform.None && Platforms != (Platform.PC | Platform.XB1 | Platform.PS4))
+        {
+            var joinedPlatforms = string.Join(',', Platforms.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries));
+            sb.Append($"&platforms={joinedPlatforms}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(Zone))
+        {
+            sb.Append($"&zone={Zone}");
+        }
+
+        recordLoadingTokenSource?.Cancel();
+        recordLoadingTokenSource = new CancellationTokenSource();
+        Task.Run(async () => {
+            using var response = await Http.GetAsync(sb.ToString(), recordLoadingTokenSource.Token);
+            await OnResponseAsync(response);
+        }, recordLoadingTokenSource.Token);
+}
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            if (Map is not null || Zone is not null)
+            {
+                CheckRecords();
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task OnResponseAsync(HttpResponseMessage response)
+    {
+        recordLoadingTokenSource = null;
+
+        if (response.StatusCode != System.Net.HttpStatusCode.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            Records = await response.Content.ReadFromJsonAsync<List<Record>>() ?? [];
+
+        }
+        catch (Exception ex)
+        {
+            
+        }
+        Cache.CachedRecords[GetCachedRecordsKey()] = new CachedRecords(DateTimeOffset.Now, Records);
+
+        // change navigation
+        if (string.IsNullOrWhiteSpace(Zone))
+        {
+            if (MapName is not null)
+            {
+                NavManager.NavigateTo(MapName + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
+            }
+            else
+            {
+                NavManager.NavigateTo(MapUid + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
+            }
+        }
+        else
+        {
+            if (MapName is not null)
+            {
+                NavManager.NavigateTo($"{MapName}/{Zone}" + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
+            }
+            else
+            {
+                NavManager.NavigateTo($"{MapUid}/{Zone}" + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
+            }
+        }
+
+        TableLoading = false;
+        StateHasChanged();
+        await Task.Delay(20);
+    }
+}

@@ -1,9 +1,4 @@
-﻿@page "/{map?}/{zone?}"
-@using TMTurboRecords.Client.Models
-@using TMTurboRecords.Shared
-@using TMTurboRecords.Shared.Models
-@rendermode InteractiveWebAssembly
-@implements IDisposable
+﻿@rendermode InteractiveWebAssembly
 
 @inject HttpClient Http
 @inject PersistentComponentState ApplicationState
@@ -107,7 +102,7 @@
             return;
         }
 
-            /*var newPath = !string.IsNullOrEmpty(Map)
+        /*var newPath = !string.IsNullOrEmpty(Map)
         ? (Map + (string.IsNullOrEmpty(Zone) ? "" : "/" + Zone)) : "/";
 
         var platforms = chips.Select(x => x.Text switch
@@ -118,23 +113,23 @@
         _ => Platform.None
         });
 
-            // add platforms to query
-            if (platforms.Any() && platforms.Count() < 3)
-            {
-            var platformsStr = string.Join(',', platforms);
-            NavManager.NavigateTo($"{newPath}?platforms={platformsStr}");
-        Platforms = platformsStr;
-        }
-        else // remove platforms from query
-            {
-            NavManager.NavigateTo(newPath);
-            Platforms = null;
-        }*/
+        // add platforms to query
+        if (platforms.Any() && platforms.Count() < 3)
+        {
+        var platformsStr = string.Join(',', platforms);
+        NavManager.NavigateTo($"{newPath}?platforms={platformsStr}");
+    Platforms = platformsStr;
+    }
+    else // remove platforms from query
+        {
+        NavManager.NavigateTo(newPath);
+        Platforms = null;
+    }*/
 
         await CheckRecordsAsync();
     }
 
-    private async Task MapNameChangedAsync(string? name)
+    private Task MapNameChangedAsync(string? name)
     {
         mapName = name;
         Map = name;
@@ -143,10 +138,12 @@
             ? (Map + (string.IsNullOrEmpty(Zone) ? "" : "/" + Zone)) : "/";
 
         NavManager.NavigateTo(newPath + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
-        await CheckRecordsAsync();
+
+        TableLoading = true;
+        return Task.CompletedTask;
     }
 
-    private async Task MapUidChangedAsync(string mapUid)
+    private Task MapUidChangedAsync(string mapUid)
     {
         this.mapUid = mapUid;
         Map = mapUid;
@@ -155,12 +152,15 @@
             ? (Map + (string.IsNullOrEmpty(Zone) ? "" : "/" + Zone)) : "/";
 
         NavManager.NavigateTo(newPath + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
-        await CheckRecordsAsync();
+
+        TableLoading = true;
+        return Task.CompletedTask;
     }
 
-    private async Task ZoneChangedAsync(string zone)
+    private Task ZoneChangedAsync(string zone)
     {
         Zone = zone;
+
         if (!string.IsNullOrEmpty(mapName))
         {
             NavManager.NavigateTo($"{mapName}/{zone}" + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
@@ -169,12 +169,17 @@
         {
             NavManager.NavigateTo($"{mapUid}/{zone}" + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
         }
-        await CheckRecordsAsync();
+
+        TableLoading = true;
+        return Task.CompletedTask;
     }
 
     public async Task CheckRecordsAsync()
     {
-
+        TableLoading = true;
+        StateHasChanged();
+        await Task.Delay(1000);
+        TableLoading = false;
     }
 
     private async Task<IEnumerable<string>> SearchZonesAsync(string value)
@@ -190,43 +195,15 @@
         return Zones.Where(x => x.Key.Contains(value, StringComparison.InvariantCultureIgnoreCase)).Select(x => x.Key);
     }
 
-    private async Task<IEnumerable<string>> SearchMapsAsync(string value)
+    private Task<IEnumerable<string>> SearchMapsAsync(string value)
     {
         // if text is null or empty, show complete list
         if (string.IsNullOrEmpty(value))
         {
-            return KnownMaps.ByName.Keys;
+            return Task.FromResult(KnownMaps.ByName.Keys.AsEnumerable());
         }
 
-        return KnownMaps.ByName.Keys.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
-    }
-
-    private PersistingComponentStateSubscription persistingSubscription;
-    protected override async Task OnInitializedAsync()
-    {
-        persistingSubscription = ApplicationState.RegisterOnPersisting(() =>
-        {
-            ApplicationState.PersistAsJson("PersistentContent", new PersistentContent
-            {
-                MapNumberPlaceholder = mapNumberPlaceholder
-            });
-
-            return Task.CompletedTask;
-        });
-
-        if (ApplicationState.TryTakeFromJson<PersistentContent>("PersistentContent", out var restored) && restored is not null)
-        {
-            mapNumberPlaceholder = restored.MapNumberPlaceholder;
-        }
-        else
-        {
-            mapNumberPlaceholder = Random.Shared.Next(1, 201).ToString();
-        }
-    }
-
-    void IDisposable.Dispose()
-    {
-        persistingSubscription.Dispose();
+        return Task.FromResult(KnownMaps.ByName.Keys.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)));
     }
 
     private string? GetAndSetValidMapName()

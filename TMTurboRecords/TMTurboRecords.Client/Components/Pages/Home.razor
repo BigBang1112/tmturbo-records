@@ -1,13 +1,20 @@
-﻿@page "/"
+﻿@page "/{map?}/{zone?}"
+@using TMTurboRecords.Client.Models
 @using TMTurboRecords.Shared.Models
 @rendermode InteractiveWebAssembly
+@implements IDisposable
+
+@inject HttpClient Http
+@inject PersistentComponentState ApplicationState
+@inject NavigationManager NavManager
 
 <PageTitle>Trackmania Turbo Records</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Medium">
     <MudStack>
         <MudText Typo="Typo.h4">Trackmania Turbo Records</MudText>
-        <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText>An open source remake of the <MudLink Href="https://maschell.de/tmt_rankings.php">Maschell TMT rankings</MudLink> site. Type the map number/UID to load the records.</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
             <MudChipSet SelectedChipsChanged="SelectedPlatformsChangedAsync" Filter="true" Mandatory="true" MultiSelection="true">
                 <MudChip Icon="fas fa-computer" CheckedIcon="fas fa-computer" Text="pc" SelectedColor="Color.Primary" Default="true">&nbsp;&nbsp;PC</MudChip>
                 <MudChip Icon="fab fa-xbox" CheckedIcon="fab fa-xbox" SelectedColor="Color.Success" Text="xb1" Default="true">Xbox One</MudChip>
@@ -15,39 +22,38 @@
             </MudChipSet>
             <MudSpacer />
             <Theme></Theme>
+            <MudTooltip Text="API">
+                <MudIconButton Icon="@Icons.Material.Rounded.Api" Href="/scalar/v1" />
+            </MudTooltip>
+            <MudTooltip Text="Docker">
+                <MudIconButton Icon="fab fa-docker" Href="https://hub.docker.com/r/bigbang1112/tmturbo-records" />
+            </MudTooltip>
+            <MudTooltip Text="GitHub">
+                <MudIconButton Icon="@Icons.Custom.Brands.GitHub" Href="https://github.com/BigBang1112/tmturbo-records" />
+            </MudTooltip>
         </MudStack>
         <MudStack Row="true" Wrap="Wrap.Wrap">
-            <MudPaper Width="75px">
-                <MudNumericField ValueChanged="MapNumberChangedAsync"
-                                 T="int?"
-                                 Label="Map #"
-                                 Placeholder="@mapNumberPlaceholder"
-                                 Variant="Variant.Outlined"
-                                 HideSpinButtons="true"
-                                 Min="1"
-                                 Max="200"></MudNumericField>
-            </MudPaper>
-            <MudTextField ValueChanged="MapUidChangedAsync" T="string" Label="UID" Variant="Variant.Outlined"></MudTextField>
-            <MudSelect ValueChanged="ZoneChangedAsync" T="string" Label="Zone" Variant="Variant.Filled" Placeholder="World">
-                @foreach (var zone in Zones)
-                {
-                    <MudSelectItem Value="@zone.Key">@zone.Value.DisplayName</MudSelectItem>
-                }
-            </MudSelect>
+            <MudNumericField @ref="mapNumberField"
+                             Value="@GetAndSetValidMapNumber()"
+                             ValueChanged="MapNumberChangedAsync"
+                             T="int?"
+                             Label="Map #"
+                             Placeholder="@mapNumberPlaceholder"
+                             Variant="Variant.Filled"
+                             HideSpinButtons="true"
+                             Min="1"
+                             Max="200"></MudNumericField>
+            <MudTextField Value="@GetAndSetValidMapUid()" ValueChanged="MapUidChangedAsync" T="string" Label="UID" Variant="Variant.Filled"></MudTextField>
+            <MudAutocomplete ValueChanged="ZoneChangedAsync" Value="@Zone" T="string" Label="Zone" Variant="Variant.Filled" Placeholder="World" SearchFunc="SearchZonesAsync"></MudAutocomplete>
         </MudStack>
         <MudDivider />
-        <MudTable Items="@Records" Hover="true" Breakpoint="Breakpoint.None" Loading="@TableLoading" LoadingProgressColor="Color.Info">
-            <HeaderContent>
-                <MudTh>Rank</MudTh>
-                <MudTh>Time</MudTh>
-                <MudTh>Platform</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="Rank">1</MudTd>
-                <MudTd DataLabel="Time">@context.Time</MudTd>
-                <MudTd DataLabel="Platform">@context.Platform</MudTd>
-            </RowTemplate>
-        </MudTable>
+        <MudDataGrid Items="@Records" Hover="true" Breakpoint="Breakpoint.None" Loading="@TableLoading" LoadingProgressColor="Color.Info">
+            <Columns>
+                <PropertyColumn Property="x => 0" Title="Rank" />
+                <PropertyColumn Property="x => x.Time" Title="Time" />
+                <PropertyColumn Property="x => x.Platform" Title="Platforms" />
+            </Columns>
+        </MudDataGrid>
     </MudStack>
 </MudContainer>
 <MudScrollToTop>
@@ -55,15 +61,25 @@
 </MudScrollToTop>
 
 @code {
+    MudNumericField<int?>? mapNumberField;
+
     int? mapNumber;
-    string mapNumberPlaceholder = Random.Shared.Next(1, 201).ToString();
+    string mapNumberPlaceholder = string.Empty;
     string? mapUid;
 
-    public Dictionary<string, Zone> Zones { get; set; } = new();
+    public int MapNumber { get; set; }
+
+    public Dictionary<string, Zone>? Zones { get; set; }
 
     public List<Record> Records { get; set; } = new();
 
     public bool TableLoading { get; set; }
+
+    [Parameter]
+    public string? Map { get; set; }
+
+    [Parameter]
+    public string? Zone { get; set; }
 
     private async Task SelectedPlatformsChangedAsync(MudChip[] chips)
     {
@@ -72,21 +88,108 @@
 
     private async Task MapNumberChangedAsync(int? number)
     {
+        mapNumber = number;
+        Map = number.ToString();
+
+        var newPath = mapNumber.HasValue
+            ? (mapNumber.ToString() + (string.IsNullOrEmpty(Zone) ? "" : "/" + Zone)) : "/";
+
+        NavManager.NavigateTo(newPath);
         await CheckRecordsAsync();
     }
 
     private async Task MapUidChangedAsync(string mapUid)
     {
+        this.mapUid = mapUid;
+        Map = mapUid;
+
+        var newPath = !string.IsNullOrEmpty(mapUid)
+            ? (mapUid + (string.IsNullOrEmpty(Zone) ? "" : "/" + Zone)) : "/";
+
+        NavManager.NavigateTo(newPath);
         await CheckRecordsAsync();
     }
 
     private async Task ZoneChangedAsync(string zone)
     {
+        Zone = zone;
+        if (mapNumber.HasValue)
+        {
+            NavManager.NavigateTo($"{mapNumber}/{zone}");
+        }
+        if (!string.IsNullOrEmpty(mapUid))
+        {
+            NavManager.NavigateTo($"{mapUid}/{zone}");
+        }
         await CheckRecordsAsync();
     }
 
     public async Task CheckRecordsAsync()
     {
-        
+
+    }
+
+    private async Task<IEnumerable<string>> SearchZonesAsync(string value)
+    {
+        Zones ??= await Http.GetFromJsonAsync<Dictionary<string, Zone>>("api/zones") ?? [];
+
+        // if text is null or empty, show complete list
+        if (string.IsNullOrEmpty(value))
+        {
+            return Zones.Select(x => x.Key);
+        }
+
+        return Zones.Where(x => x.Key.Contains(value, StringComparison.InvariantCultureIgnoreCase)).Select(x => x.Key);
+    }
+
+    private PersistingComponentStateSubscription persistingSubscription;
+    protected override Task OnInitializedAsync()
+    {
+        persistingSubscription = ApplicationState.RegisterOnPersisting(() =>
+        {
+            ApplicationState.PersistAsJson("PersistentContent", new PersistentContent
+            {
+                MapNumberPlaceholder = mapNumberPlaceholder
+            });
+
+            return Task.CompletedTask;
+        });
+
+        if (ApplicationState.TryTakeFromJson<PersistentContent>("PersistentContent", out var restored) && restored is not null)
+        {
+            mapNumberPlaceholder = restored.MapNumberPlaceholder;
+        }
+        else
+        {
+            mapNumberPlaceholder = Random.Shared.Next(1, 201).ToString();
+        }
+
+        return base.OnInitializedAsync();
+    }
+
+    void IDisposable.Dispose()
+    {
+        persistingSubscription.Dispose();
+    }
+
+    private int? GetAndSetValidMapNumber()
+    {
+        if (Map?.Length <= 3 && int.TryParse(Map, out var mapNum) && mapNum > 0 && mapNum <= 200)
+        {
+            return mapNumber = mapNum;
+        }
+
+        return mapNumber;
+    }
+
+    private string? GetAndSetValidMapUid()
+    {
+        if (Map?.Length > 25)
+        {
+            mapNumberPlaceholder = string.Empty;
+            return mapUid = Map;
+        }
+
+        return mapUid;
     }
 }

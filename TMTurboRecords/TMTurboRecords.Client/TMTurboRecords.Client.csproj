@@ -13,7 +13,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\..\TMTurboRecords.Shared\TMTurboRecords.Shared.csproj" />
+	  <ProjectReference Include="..\TMTurboRecords.Shared\TMTurboRecords.Shared.csproj" />
 	</ItemGroup>
 
 </Project>

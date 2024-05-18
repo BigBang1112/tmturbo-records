@@ -1,7 +1,7 @@
 ﻿<MudThemeProvider @ref="@_mudThemeProvider" @bind-IsDarkMode="@IsDarkMode" Theme="_theme" />
 
 <MudToggleIconButton @bind-Toggled="@IsLightMode"
-                     Icon="@Icons.Material.Outlined.Lightbulb"
+                     Icon="@Icons.Material.Filled.Lightbulb"
                      ToggledIcon="@Icons.Material.Filled.Lightbulb"
                      Color="Color.Warning" />
 
@@ -29,6 +29,11 @@
 
     private Task OnSystemPreferenceChanged(bool newValue)
     {
+        if (IsDarkMode == newValue)
+        {
+            return Task.CompletedTask;
+        }
+
         IsDarkMode = newValue;
         StateHasChanged();
         return Task.CompletedTask;

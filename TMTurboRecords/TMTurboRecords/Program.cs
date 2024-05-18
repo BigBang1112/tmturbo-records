@@ -1,13 +1,40 @@
+using Microsoft.OpenApi.Models;
 using MudBlazor.Services;
+using TMTurboRecords;
 using TMTurboRecords.Components;
+using TMTurboRecords.Extensions;
+using TMTurboRecords.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddMemoryCache();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "TMTR", Version = "v1" });
+});
+
+foreach (var platform in MasterServer.Platforms)
+{
+    for (var i = 1; i <= 3; i++)
+    {
+        var platformServer = $"{i:000}-{platform}";
+
+        builder.Services.AddHttpClient(platformServer, client =>
+        {
+            client.BaseAddress = new Uri($"http://mp{platformServer}.turbo.trackmania.com/game/request.php");
+        });
+    }
+}
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
 
+builder.Services.AddTransient<ZoneService>();
+
+builder.Services.AddEndpoints();
 builder.Services.AddMudServices();
 
 var app = builder.Build();
@@ -28,6 +55,12 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 app.UseAntiforgery();
+
+app.UseSwagger();
+
+app.MapScalarUi();
+
+app.UseEndpoints();
 
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()

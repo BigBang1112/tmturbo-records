@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TMTurboRecords", "TMTurboRe
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TMTurboRecords.Client", "TMTurboRecords\TMTurboRecords.Client\TMTurboRecords.Client.csproj", "{E8486BEF-A3F3-4DB8-B5E2-9542D99256A0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TMTurboRecords.Shared", "TMTurboRecords.Shared\TMTurboRecords.Shared.csproj", "{330E9010-68A7-4D9C-82A3-B1ECB1D8BB5E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TMTurboRecords.Shared", "TMTurboRecords\TMTurboRecords.Shared\TMTurboRecords.Shared.csproj", "{0FAC301E-1C84-4894-85C7-5097CAA6A1AA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,10 +23,10 @@ Global
 		{E8486BEF-A3F3-4DB8-B5E2-9542D99256A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E8486BEF-A3F3-4DB8-B5E2-9542D99256A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E8486BEF-A3F3-4DB8-B5E2-9542D99256A0}.Release|Any CPU.Build.0 = Release|Any CPU
-		{330E9010-68A7-4D9C-82A3-B1ECB1D8BB5E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{330E9010-68A7-4D9C-82A3-B1ECB1D8BB5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{330E9010-68A7-4D9C-82A3-B1ECB1D8BB5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{330E9010-68A7-4D9C-82A3-B1ECB1D8BB5E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0FAC301E-1C84-4894-85C7-5097CAA6A1AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0FAC301E-1C84-4894-85C7-5097CAA6A1AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0FAC301E-1C84-4894-85C7-5097CAA6A1AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0FAC301E-1C84-4894-85C7-5097CAA6A1AA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

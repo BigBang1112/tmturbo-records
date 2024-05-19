@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor.Services;
-using TMTurboRecords.Client;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 

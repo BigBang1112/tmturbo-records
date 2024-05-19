@@ -34,6 +34,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
 builder.Services.AddTransient<ZoneService>();
+builder.Services.AddTransient<RecordService>();
 
 builder.Services.AddEndpoints();
 builder.Services.AddMudServices();

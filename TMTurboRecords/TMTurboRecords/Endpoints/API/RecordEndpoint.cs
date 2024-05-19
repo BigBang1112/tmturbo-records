@@ -1,5 +1,5 @@
-﻿using TMTurboRecords.Services;
-using TMTurboRecords.Shared.Models;
+﻿using Microsoft.AspNetCore.Mvc;
+using TMTurboRecords.Services;
 
 namespace TMTurboRecords.Endpoints.API;
 
@@ -7,10 +7,15 @@ public class RecordEndpoint : IEndpoint
 {
     public void RegisterEndpoints(IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/records", async (ZoneService zoneService, CancellationToken cancellationToken) =>
+        app.MapGet("/api/records", async (
+            [FromServices] RecordService recordService,
+            string mapUid,
+            string platform,
+            string? zone,
+            CancellationToken cancellationToken) =>
         {
-            await Task.Delay(3000, cancellationToken);
-            return Results.Ok(new List<Record>());
+            var records = await recordService.GetRecordsAsync(mapUid, platform, zone, cancellationToken);
+            return Results.Ok(records);
         }).WithOpenApi();
     }
 }

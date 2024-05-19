@@ -43,6 +43,9 @@
             <MudTooltip Text="API">
                 <MudIconButton Icon="@Icons.Material.Rounded.Api" Href="/scalar/v1" />
             </MudTooltip>
+            <MudTooltip Text="PayPal">
+                <MudIconButton Icon="fab fa-paypal" Href="https://www.paypal.me/bigbang1112" />
+            </MudTooltip>
             <MudTooltip Text="Docker">
                 <MudIconButton Icon="fab fa-docker" Href="https://hub.docker.com/r/bigbang1112/tmturbo-records" />
             </MudTooltip>
@@ -56,7 +59,8 @@
                              T="string"
                              Label="Map"
                              Variant="Variant.Filled"
-                             SearchFunc="SearchMapsAsync"></MudAutocomplete>
+                             SearchFunc="SearchMapsAsync"
+                             MaxItems="20"></MudAutocomplete>
             <MudTextField ValueChanged="MapUidChangedAsync"
                           Value="MapUid"
                           T="string"
@@ -68,7 +72,8 @@
                              Label="Zone"
                              Variant="Variant.Filled"
                              Placeholder="World"
-                             SearchFunc="SearchZonesAsync"></MudAutocomplete>
+                             SearchFunc="SearchZonesAsync"
+                             MaxItems="20"></MudAutocomplete>
         </MudStack>
         <MudDivider />
         <MudDataGrid Items="@Records" Hover="true" Breakpoint="Breakpoint.None" Loading="@TableLoading" LoadingProgressColor="Color.Info">
@@ -103,7 +108,7 @@
 
     public RecordParameters? RequestParameters { get; set; }
 
-    private CancellationTokenSource? recordLoadingTokenSource;
+    private Dictionary<string, CancellationTokenSource> recordRequestTokenSources = [];
 
     private async Task<IEnumerable<string>> SearchZonesAsync(string value)
     {
@@ -156,6 +161,11 @@
             };
         }
 
+        if (Platforms == Platform.None)
+        {
+            Platforms = Platform.PC | Platform.XB1 | Platform.PS4;
+        }
+
         CheckRecords();
     }
 
@@ -206,46 +216,53 @@
 
         RequestParameters = parameters;
 
-        if (Cache.CachedRecords.TryGetValue(GetCachedRecordsKey(), out CachedRecords? cachedRecords))
+        Records.Clear();
+
+        foreach (var platform in Platforms.ToString().Split(", ", StringSplitOptions.RemoveEmptyEntries))
         {
-            Records = cachedRecords.Records;
-
-            if (DateTimeOffset.Now - cachedRecords.RequestedAt < TimeSpan.FromMinutes(5))
+            if (Cache.CachedRecords.TryGetValue(GetCachedRecordsKey(platform), out CachedRecords? cachedRecords))
             {
-                return;
-            }
-        }
+                Records.AddRange(cachedRecords.Records);
+                Records.Sort((Record x, Record y) => x.Time.CompareTo(y.Time));
 
-        RequestRecords();
+                if (DateTimeOffset.Now - cachedRecords.RequestedAt < TimeSpan.FromMinutes(5))
+                {
+                    continue;
+                }
+            }
+
+            RequestRecords(platform);
+        }
     }
 
-    private string GetCachedRecordsKey() => $"{MapUid}_{(string.IsNullOrWhiteSpace(Zone) ? "World" : Zone)}";
+    private string GetCachedRecordsKey(string platform) => $"{MapUid}_{platform}_{(string.IsNullOrWhiteSpace(Zone) ? "World" : Zone)}";
 
-    private void RequestRecords()
+    private void RequestRecords(string platform)
     {
         TableLoading = true;
 
-        var sb = new System.Text.StringBuilder("api/records?map=");
+        var sb = new System.Text.StringBuilder("api/records?mapUid=");
         sb.Append(MapUid);
-
-        if (Platforms != Platform.None && Platforms != (Platform.PC | Platform.XB1 | Platform.PS4))
-        {
-            var joinedPlatforms = string.Join(',', Platforms.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries));
-            sb.Append($"&platforms={joinedPlatforms}");
-        }
 
         if (!string.IsNullOrWhiteSpace(Zone))
         {
             sb.Append($"&zone={Zone}");
         }
 
-        recordLoadingTokenSource?.Cancel();
-        recordLoadingTokenSource = new CancellationTokenSource();
-        Task.Run(async () => {
-            using var response = await Http.GetAsync(sb.ToString(), recordLoadingTokenSource.Token);
-            await OnResponseAsync(response);
-        }, recordLoadingTokenSource.Token);
-}
+        var baseStr = sb.ToString();
+
+        if (recordRequestTokenSources.TryGetValue(platform, out var tokenSource))
+        {
+            tokenSource.Cancel();
+        }
+
+        recordRequestTokenSources[platform] = new CancellationTokenSource();
+        Task.Run(async () =>
+        {
+            using var response = await Http.GetAsync(baseStr + "&platform=" + platform, recordRequestTokenSources[platform].Token);
+            await OnResponseAsync(platform, response);
+        }, recordRequestTokenSources[platform].Token);
+    }
 
     protected override void OnAfterRender(bool firstRender)
     {
@@ -259,25 +276,18 @@
         }
     }
 
-    private async Task OnResponseAsync(HttpResponseMessage response)
+    private async Task OnResponseAsync(string platform, HttpResponseMessage response)
     {
-        recordLoadingTokenSource = null;
+        recordRequestTokenSources.Remove(platform);
 
         if (response.StatusCode != System.Net.HttpStatusCode.OK)
         {
             return;
         }
 
-        try
-        {
-            Records = await response.Content.ReadFromJsonAsync<List<Record>>() ?? [];
+        var records = await response.Content.ReadFromJsonAsync<List<Record>>() ?? [];
 
-        }
-        catch (Exception ex)
-        {
-            
-        }
-        Cache.CachedRecords[GetCachedRecordsKey()] = new CachedRecords(DateTimeOffset.Now, Records);
+        Cache.CachedRecords[GetCachedRecordsKey(platform)] = new CachedRecords(DateTimeOffset.Now, records);
 
         // change navigation
         if (string.IsNullOrWhiteSpace(Zone))
@@ -303,7 +313,11 @@
             }
         }
 
-        TableLoading = false;
+        if (recordRequestTokenSources.Count == 0)
+        {
+            TableLoading = false;
+        }
+
         StateHasChanged();
         await Task.Delay(20);
     }

@@ -221,6 +221,11 @@
 
         RequestParameters = parameters;
 
+        ReloadRecords();
+    }
+
+    private void ReloadRecords()
+    {
         Records.Clear();
 
         foreach (var platform in Platforms.ToString().Split(", ", StringSplitOptions.RemoveEmptyEntries))
@@ -301,36 +306,36 @@
 
         Cache.CachedRecords[GetCachedRecordsKey(platform)] = new CachedRecords(DateTimeOffset.Now, records);
 
-        // change navigation
-        if (string.IsNullOrWhiteSpace(Zone))
-        {
-            if (MapName is not null)
-            {
-                NavManager.NavigateTo(MapName + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
-            }
-            else
-            {
-                NavManager.NavigateTo(MapUid + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
-            }
-        }
-        else
-        {
-            if (MapName is not null)
-            {
-                NavManager.NavigateTo($"{MapName}/{Zone}" + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
-            }
-            else
-            {
-                NavManager.NavigateTo($"{MapUid}/{Zone}" + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
-            }
-        }
-
         if (recordRequestTokenSources.Count == 0)
         {
+            // change navigation
+            if (string.IsNullOrWhiteSpace(Zone))
+            {
+                if (MapName is not null)
+                {
+                    NavManager.NavigateTo(MapName + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
+                }
+                else
+                {
+                    NavManager.NavigateTo(MapUid + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
+                }
+            }
+            else
+            {
+                if (MapName is not null)
+                {
+                    NavManager.NavigateTo($"{MapName}/{Zone}" + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
+                }
+                else
+                {
+                    NavManager.NavigateTo($"{MapUid}/{Zone}" + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
+                }
+            }
+
+            ReloadRecords();
             TableLoading = false;
         }
 
         StateHasChanged();
-        await Task.Delay(20);
     }
 }

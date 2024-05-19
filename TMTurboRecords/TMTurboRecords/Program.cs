@@ -4,7 +4,7 @@ using TMTurboRecords;
 using TMTurboRecords.Components;
 using TMTurboRecords.Extensions;
 using TMTurboRecords.Services;
-using TMTurboRecords.Client;
+using Blazored.LocalStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +32,8 @@ foreach (var platform in MasterServer.Platforms)
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
+
+builder.Services.AddBlazoredLocalStorage();
 
 builder.Services.AddTransient<ZoneService>();
 builder.Services.AddTransient<RecordService>();

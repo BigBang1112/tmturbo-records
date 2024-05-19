@@ -1,4 +1,6 @@
-﻿<MudThemeProvider @ref="@_mudThemeProvider" @bind-IsDarkMode="@IsDarkMode" Theme="_theme" />
+﻿@inject Blazored.LocalStorage.ISyncLocalStorageService LocalStorage
+
+<MudThemeProvider @ref="@_mudThemeProvider" @bind-IsDarkMode="@IsDarkMode" Theme="_theme" />
 
 <MudToggleIconButton @bind-Toggled="@IsLightMode"
                      Icon="@Icons.Material.Filled.Lightbulb"
@@ -6,10 +8,19 @@
                      Color="Color.Warning" />
 
 @code {
+    private bool isDarkMode = true;
     private MudTheme _theme = new();
     private MudThemeProvider? _mudThemeProvider;
 
-    public bool IsDarkMode { get; set; } = true;
+    public bool IsDarkMode
+    {
+        get => isDarkMode;
+        set
+        {
+            isDarkMode = value;
+            LocalStorage.SetItem("IsDarkMode", value);
+        }
+    }
     public bool IsLightMode { get => !IsDarkMode; set => IsDarkMode = !value; }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -21,7 +32,15 @@
                 return;
             }
 
-            IsDarkMode = await _mudThemeProvider.GetSystemPreference();
+            if (LocalStorage.ContainKey("IsDarkMode"))
+            {
+                IsDarkMode = LocalStorage.GetItem<bool>("IsDarkMode");
+            }
+            else
+            {
+                IsDarkMode = await _mudThemeProvider.GetSystemPreference();
+            }
+
             await _mudThemeProvider.WatchSystemPreference(OnSystemPreferenceChanged);
             StateHasChanged();
         }

@@ -27,6 +27,15 @@
             MapUid = Map;
         }
     }
+
+    if (string.IsNullOrWhiteSpace(PlatformQuery))
+    {
+        Platforms = Platform.PC | Platform.XB1 | Platform.PS4;
+    }
+    else
+    {
+        PlatformQueryToPlatforms(PlatformQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
 }
 
 <MudContainer MaxWidth="MaxWidth.Medium">
@@ -99,6 +108,9 @@
     [Parameter]
     public string? Zone { get; set; }
 
+    [SupplyParameterFromQuery(Name = "p")]
+    public string? PlatformQuery { get; set; }
+
     public Platform Platforms { get; set; } = Platform.PC | Platform.XB1 | Platform.PS4;
     public string? MapName { get; set; }
     public string? MapUid { get; set; }
@@ -140,9 +152,12 @@
     private bool selectedPlatformsReady;
     private async Task SelectedPlatformsChangedAsync(MudChip[] chips)
     {
+        var platformQueryLength = string.IsNullOrWhiteSpace(PlatformQuery)
+            ? default(int?) : PlatformQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+
         if (!selectedPlatformsReady)
         {
-            if (chips.Length != 3)
+            if (chips.Length != (platformQueryLength ?? 3))
             {
                 return;
             }
@@ -151,11 +166,21 @@
             return;
         }
 
+        PlatformQueryToPlatforms(chips.Select(x => x.Text));
+        ChangeNavigation();
+
+        //LocalStorage.SetItem("Platforms", Platforms);
+
+        CheckRecords();
+    }
+
+    private void PlatformQueryToPlatforms(IEnumerable<string> platforms)
+    {
         Platforms = Platform.None;
 
-        foreach (var chip in chips)
+        foreach (var platform in platforms)
         {
-            Platforms |= chip.Text switch
+            Platforms |= platform.ToLowerInvariant() switch
             {
                 "pc" => Platform.PC,
                 "xb1" => Platform.XB1,
@@ -168,10 +193,6 @@
         {
             Platforms = Platform.PC | Platform.XB1 | Platform.PS4;
         }
-
-        LocalStorage.SetItem("Platforms", Platforms);
-
-        CheckRecords();
     }
 
     private async Task MapNameChangedAsync(string? name)
@@ -278,10 +299,16 @@
     {
         if (firstRender)
         {
-            if (LocalStorage.ContainKey("Platforms"))
-            {
+            /*if (LocalStorage.ContainKey("Platforms"))
+                {
                 Platforms = LocalStorage.GetItem<Platform>("Platforms");
                 chipSetKey = Guid.NewGuid().ToString();
+                StateHasChanged();
+            }*/
+
+            if (PlatformQuery is not null)
+            {
+                PlatformQueryToPlatforms(PlatformQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries));
                 StateHasChanged();
             }
 
@@ -308,34 +335,64 @@
 
         if (recordRequestTokenSources.Count == 0)
         {
-            // change navigation
-            if (string.IsNullOrWhiteSpace(Zone))
-            {
-                if (MapName is not null)
-                {
-                    NavManager.NavigateTo(MapName + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
-                }
-                else
-                {
-                    NavManager.NavigateTo(MapUid + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
-                }
-            }
-            else
-            {
-                if (MapName is not null)
-                {
-                    NavManager.NavigateTo($"{MapName}/{Zone}" + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
-                }
-                else
-                {
-                    NavManager.NavigateTo($"{MapUid}/{Zone}" + NavManager.ToAbsoluteUri(NavManager.Uri).Query);
-                }
-            }
+            ChangeNavigation();
 
             ReloadRecords();
             TableLoading = false;
         }
 
         StateHasChanged();
+    }
+
+    private void NavigateToWithQueryParam(string? path, string param, string? value)
+    {
+        var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+
+        if (string.IsNullOrEmpty(value))
+        {
+            query.Remove(param);
+        }
+        else
+        {
+            query[param] = value;
+        }
+
+        if (query.Count == 0)
+        {
+            NavManager.NavigateTo(path ?? string.Empty);
+            return;
+        }
+
+        NavManager.NavigateTo(path + "?" + query.ToString());
+    }
+
+    private void ChangeNavigation()
+    {
+        var platformQuery = Platforms == (Platform.PC | Platform.XB1 | Platform.PS4)
+            ? "" : string.Join(' ', Platforms.ToString().Split(", ", StringSplitOptions.RemoveEmptyEntries));
+
+        if (string.IsNullOrWhiteSpace(Zone))
+        {
+            if (MapName is not null)
+            {
+                NavigateToWithQueryParam(MapName, "p", platformQuery);
+            }
+            else
+            {
+                NavigateToWithQueryParam(MapUid, "p", platformQuery);
+            }
+        }
+        else
+        {
+            if (MapName is not null)
+            {
+                NavigateToWithQueryParam($"{MapName}/{Zone}", "p", platformQuery);
+            }
+            else
+            {
+                NavigateToWithQueryParam($"{MapUid}/{Zone}", "p", platformQuery);
+            }
+        }
     }
 }

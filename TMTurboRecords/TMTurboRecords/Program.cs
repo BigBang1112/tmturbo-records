@@ -5,6 +5,8 @@ using TMTurboRecords.Components;
 using TMTurboRecords.Extensions;
 using TMTurboRecords.Services;
 using Blazored.LocalStorage;
+using Microsoft.AspNetCore.Http.Json;
+using TMTurboRecords.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +42,11 @@ builder.Services.AddTransient<RecordService>();
 
 builder.Services.AddEndpoints();
 builder.Services.AddMudServices();
+
+builder.Services.Configure<JsonOptions>(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonTimeInt32Converter());
+});
 
 var app = builder.Build();
 

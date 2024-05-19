@@ -4,6 +4,7 @@
 @inject HttpClient Http
 @inject NavigationManager NavManager
 @inject IServiceProvider ServiceProvider
+@inject Blazored.LocalStorage.ISyncLocalStorageService LocalStorage
 
 <PageTitle>Trackmania Turbo Records</PageTitle>
 
@@ -33,10 +34,10 @@
         <MudText Typo="Typo.h4">Trackmania Turbo Records</MudText>
         <MudText>An open source remake of the <MudLink Href="https://maschell.de/tmt_rankings.php">Maschell TMT rankings</MudLink> site. Type the map number/UID to load the records.</MudText>
         <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-            <MudChipSet SelectedChipsChanged="SelectedPlatformsChangedAsync" Filter="true" MultiSelection="true">
-                <MudChip Icon="fas fa-computer" CheckedIcon="fas fa-computer" Text="pc" SelectedColor="Color.Primary" Default="true">&nbsp;&nbsp;PC</MudChip>
-                <MudChip Icon="fab fa-xbox" CheckedIcon="fab fa-xbox" SelectedColor="Color.Success" Text="xb1" Default="true">Xbox One</MudChip>
-                <MudChip Icon="fab fa-playstation" CheckedIcon="fab fa-playstation" Text="ps4" SelectedColor="Color.Info" Default="true">&nbsp;PS4</MudChip>
+            <MudChipSet @key=chipSetKey SelectedChipsChanged="SelectedPlatformsChangedAsync" Filter="true" MultiSelection="true">
+                <MudChip Icon="fas fa-computer" CheckedIcon="fas fa-computer" Text="pc" SelectedColor="Color.Primary" Default="(Platforms & Platform.PC) != 0">&nbsp;&nbsp;PC</MudChip>
+                <MudChip Icon="fab fa-xbox" CheckedIcon="fab fa-xbox" SelectedColor="Color.Success" Text="xb1" Default="(Platforms & Platform.XB1) != 0">Xbox One</MudChip>
+                <MudChip Icon="fab fa-playstation" CheckedIcon="fab fa-playstation" Text="ps4" SelectedColor="Color.Info" Default="(Platforms & Platform.PS4) != 0">&nbsp;PS4</MudChip>
             </MudChipSet>
             <MudSpacer />
             <Theme></Theme>
@@ -90,6 +91,8 @@
 </MudScrollToTop>
 
 @code {
+    private string chipSetKey = Guid.NewGuid().ToString();
+
     [Parameter]
     public string? Map { get; set; }
 
@@ -165,6 +168,8 @@
         {
             Platforms = Platform.PC | Platform.XB1 | Platform.PS4;
         }
+
+        LocalStorage.SetItem("Platforms", Platforms);
 
         CheckRecords();
     }
@@ -264,10 +269,17 @@
         }, recordRequestTokenSources[platform].Token);
     }
 
-    protected override void OnAfterRender(bool firstRender)
+    protected override async void OnAfterRender(bool firstRender)
     {
         if (firstRender)
         {
+            if (LocalStorage.ContainKey("Platforms"))
+            {
+                Platforms = LocalStorage.GetItem<Platform>("Platforms");
+                chipSetKey = Guid.NewGuid().ToString();
+                StateHasChanged();
+            }
+
             if (Map is not null || Zone is not null)
             {
                 CheckRecords();

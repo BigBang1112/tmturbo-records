@@ -7,8 +7,14 @@ using TMTurboRecords.Services;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Http.Json;
 using TMTurboRecords.Shared;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
 
 builder.Services.AddMemoryCache();
 builder.Services.AddEndpointsApiExplorer();
@@ -25,8 +31,14 @@ foreach (var platform in MasterServer.Platforms)
 
         builder.Services.AddHttpClient(platformServer, client =>
         {
+            client.DefaultRequestHeaders.AcceptEncoding.Add(new("gzip"));
             client.BaseAddress = new Uri($"http://mp{platformServer}.turbo.trackmania.com/game/request.php");
-        });
+        })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+                AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
+            });
     }
 }
 
@@ -63,6 +75,8 @@ else
 }
 
 app.UseHttpsRedirection();
+
+app.UseResponseCompression();
 
 app.UseStaticFiles();
 app.UseAntiforgery();

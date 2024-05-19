@@ -17,7 +17,7 @@ public class RecordEndpoint : IEndpoint
 
     public void RegisterEndpoints(IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/v1/records/{platform}/{mapUid}/{zone}", async (
+        app.MapGet("/api/v1/records/{platform}/{mapUid}/{zone?}", async (
             [FromServices] RecordService recordService,
             Platform platform,
             string mapUid,

@@ -1,5 +1,4 @@
 ﻿@page "/{map?}/{zone?}"
-@using TmEssentials
 @rendermode InteractiveWebAssembly
 
 @inject HttpClient Http
@@ -89,13 +88,14 @@
         <MudDivider />
         <MudDataGrid Items="@Records" Filterable="false" Hover="false" Dense="true" Virtualize="true" Breakpoint="Breakpoint.None" Loading="@TableLoading" LoadingProgressColor="Color.Info">
             <Columns>
-                <PropertyColumn Property="x => GetRankStr(x)" Title="Rank" />
-                <PropertyColumn Property="x => x.Time" Title="Time" />
-                <PropertyColumn Property="x => x.Count" Title="Count" />
-                <PropertyColumn Property="x => x.Platform" Title="Platforms" />
+                <PropertyColumn Property="x => x.Rank" Title="Rank" />
+                <PropertyColumn Property="x => x.Record.PlatformRank" Title="Platform Rank" />
+                <PropertyColumn Property="x => x.Record.Time.ToTmString(false, false)" Title="Time" />
+                <PropertyColumn Property="x => x.Record.Count" Title="Count" />
+                <PropertyColumn Property="x => x.Record.Platform" Title="Platform" />
             </Columns>
             <PagerContent>
-                <MudDataGridPager T="Record" />
+                <MudDataGridPager T="RankedRecord" />
             </PagerContent>
         </MudDataGrid>
     </MudStack>
@@ -122,20 +122,13 @@
 
     public Dictionary<string, Zone>? Zones { get; set; }
 
-    public List<Record> Records { get; set; } = [];
+    public List<RankedRecord> Records { get; set; } = [];
 
     public bool TableLoading { get; set; }
 
     public RecordParameters? RequestParameters { get; set; }
 
-    private Dictionary<string, CancellationTokenSource> recordRequestTokenSources = [];
-
-    private System.Text.Json.JsonSerializerOptions jsonOptions = new() { PropertyNameCaseInsensitive = true };
-
-    protected override void OnInitialized()
-    {
-        jsonOptions.Converters.Add(new JsonTimeInt32Converter());
-    }
+    private CancellationTokenSource? recordRequestTokenSource;
 
     private async Task<IEnumerable<string>> SearchZonesAsync(string value)
     {
@@ -257,94 +250,36 @@
         ReloadRecords();
     }
 
-    private Dictionary<Record, int> globalRanks = [];
-
     private void ReloadRecords()
     {
-        Records.Clear();
-        globalRanks.Clear();
-
         var comparer = new RecordComparer();
 
-        foreach (var platform in Platforms.ToString().Split(", ", StringSplitOptions.RemoveEmptyEntries))
+        if (Cache.CachedRecords.TryGetValue(GetCachedRecordsKey(), out CachedRecords? cachedRecords))
         {
-            if (Cache.CachedRecords.TryGetValue(GetCachedRecordsKey(platform), out CachedRecords? cachedRecords))
+            Records = cachedRecords.Records;
+
+            if (DateTimeOffset.Now - cachedRecords.RequestedAt < TimeSpan.FromMinutes(5))
             {
-                if (Records.Count == 0)
-                {
-                    Records.AddRange(cachedRecords.Records);
-                }
-                else
-                {
-                    var incRecsEnumerator = cachedRecords.Records.GetEnumerator();
-                    if (incRecsEnumerator.MoveNext())
-                    {
-                        var current = incRecsEnumerator.Current;
-                        for (var i = 0; i < Records.Count; i++)
-                        {
-                            var rec = Records[i];
-
-                            if (current.Time < rec.Time)
-                            {
-                                Records.Insert(i, current);
-                                i++;
-                                if (!incRecsEnumerator.MoveNext())
-                                {
-                                    break;
-                                }
-                                current = incRecsEnumerator.Current;
-                            }
-                        }
-                    }
-                }
-
-                /*Records.AddRange(cachedRecords.Records);
-                Records.Sort(comparer);
-
-                var counter = 1;
-                var prevRec = default(Record?);
-
-                for (var i = 0; i < Records.Count; i++)
-                {
-                    var rec = Records[i];
-
-                    if (prevRec.HasValue)
-                    {
-                        counter += prevRec.Value.Count;
-                    }
-
-                    globalRanks[rec] = counter;
-
-                    prevRec = rec;
-                }*/
-
-                if (DateTimeOffset.Now - cachedRecords.RequestedAt < TimeSpan.FromMinutes(5))
-                {
-                    continue;
-                }
+                return;
             }
-
-            RequestRecords(platform);
         }
+
+        RequestRecords();
     }
 
-    private string GetCachedRecordsKey(string platform) => $"{MapUid}_{platform}_{(string.IsNullOrWhiteSpace(Zone) ? "World" : Zone)}";
+    private string GetCachedRecordsKey() => $"{MapUid}_{Platforms}_{(string.IsNullOrWhiteSpace(Zone) ? "World" : Zone)}";
 
-    private void RequestRecords(string platform)
+    private void RequestRecords()
     {
         TableLoading = true;
 
-        if (recordRequestTokenSources.TryGetValue(platform, out var tokenSource))
-        {
-            tokenSource.Cancel();
-        }
-
-        recordRequestTokenSources[platform] = new CancellationTokenSource();
+        recordRequestTokenSource?.Cancel();
+        recordRequestTokenSource = new CancellationTokenSource();
         Task.Run(async () =>
         {
-            using var response = await Http.GetAsync("api/v1/records/" + platform + "/" + MapUid + (string.IsNullOrWhiteSpace(Zone) ? "" : ("/" + Zone)), recordRequestTokenSources[platform].Token);
-            await OnResponseAsync(platform, response);
-        }, recordRequestTokenSources[platform].Token);
+            using var response = await Http.GetAsync("api/v1/records/" + (int)Platforms + "/" + MapUid + (string.IsNullOrWhiteSpace(Zone) ? "" : ("/" + Zone)), recordRequestTokenSource.Token);
+            await OnResponseAsync(response);
+        }, recordRequestTokenSource.Token);
     }
 
     protected override async void OnAfterRender(bool firstRender)
@@ -372,9 +307,9 @@
         }
     }
 
-    private async Task OnResponseAsync(string platform, HttpResponseMessage response)
+    private async Task OnResponseAsync(HttpResponseMessage response)
     {
-        recordRequestTokenSources.Remove(platform);
+        recordRequestTokenSource = null;
 
         if (response.StatusCode != System.Net.HttpStatusCode.OK)
         {
@@ -384,11 +319,11 @@
             return;
         }
 
-        List<Record> records;
+        List<RankedRecord> records;
 
         try
         {
-            records = await response.Content.ReadFromJsonAsync<List<Record>>(jsonOptions) ?? [];
+            records = await response.Content.ReadFromJsonAsync<List<RankedRecord>>(AppJsonSerializerContext.Optimized.ListRankedRecord) ?? [];
         }
         catch (Exception ex)
         {
@@ -398,14 +333,10 @@
             return;
         }
 
-        Cache.CachedRecords[GetCachedRecordsKey(platform)] = new CachedRecords(DateTimeOffset.Now, records);
+        Cache.CachedRecords[GetCachedRecordsKey()] = new CachedRecords(DateTimeOffset.Now, records);
 
-        if (recordRequestTokenSources.Count == 0)
-        {
-            ChangeNavigation();
-            TableLoading = false;
-        }
-
+        ChangeNavigation();
+        TableLoading = false;
         ReloadRecords();
         StateHasChanged();
     }
@@ -460,15 +391,5 @@
                 NavigateToWithQueryParam($"{MapUid}/{Zone}", "p", platformQuery);
             }
         }
-    }
-
-    private string GetRankStr(Record rec)
-    {
-        if (globalRanks.TryGetValue(rec, out var rank))
-        {
-            return $"{rank} ({rec.PlatformRank})";
-        }
-
-        return $"- ({rec.PlatformRank})";
     }
 }

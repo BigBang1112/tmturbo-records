@@ -2,4 +2,4 @@
 
 namespace TMTurboRecords.Client;
 
-public sealed record CachedRecords(DateTimeOffset RequestedAt, List<Record> Records);
+public sealed record CachedRecords(DateTimeOffset RequestedAt, List<RankedRecord> Records);

@@ -27,7 +27,7 @@ public sealed class RecordService
 
     public async Task<List<RankedRecord>> GetRecordsAsync(Platform platform, string mapUid, string? zone, CancellationToken cancellationToken)
     {
-        if (((int)platform & 7) != (int)platform)
+        if ((uint)platform > 7)
         {
             throw new ArgumentException("Invalid platform", nameof(platform));
         }

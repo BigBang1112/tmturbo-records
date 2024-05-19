@@ -163,7 +163,7 @@ public sealed class RecordService
             if (responseElement?.Element("e") is XElement errorElement)
             {
                 // Error
-                throw new Exception($"XML-RPC error: {errorElement.Element("m")?.Value}");
+                logger.LogError("XML-RPC error: {Error}", errorElement.Element("m")?.Value);
             }
 
             return [];

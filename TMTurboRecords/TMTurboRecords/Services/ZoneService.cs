@@ -54,7 +54,7 @@ public sealed class ZoneService
 
         await Task.WhenAll(platformRequests.Values);
 
-        zones = new Dictionary<string, Zone>();
+        zones = [];
 
         foreach (var (platformName, responseTask) in platformRequests)
         {

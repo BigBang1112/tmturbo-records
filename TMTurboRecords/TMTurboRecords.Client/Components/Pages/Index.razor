@@ -1,4 +1,5 @@
 ﻿@page "/{map?}/{zone?}"
+@using TmEssentials
 @rendermode InteractiveWebAssembly
 
 @inject HttpClient Http
@@ -121,7 +122,7 @@
 
     public Dictionary<string, Zone>? Zones { get; set; }
 
-    public List<Record> Records { get; set; } = new();
+    public List<Record> Records { get; set; } = [];
 
     public bool TableLoading { get; set; }
 
@@ -269,13 +270,53 @@
         {
             if (Cache.CachedRecords.TryGetValue(GetCachedRecordsKey(platform), out CachedRecords? cachedRecords))
             {
-                Records.AddRange(cachedRecords.Records);
+                if (Records.Count == 0)
+                {
+                    Records.AddRange(cachedRecords.Records);
+                }
+                else
+                {
+                    var incRecsEnumerator = cachedRecords.Records.GetEnumerator();
+                    if (incRecsEnumerator.MoveNext())
+                    {
+                        var current = incRecsEnumerator.Current;
+                        for (var i = 0; i < Records.Count; i++)
+                        {
+                            var rec = Records[i];
+
+                            if (current.Time < rec.Time)
+                            {
+                                Records.Insert(i, current);
+                                i++;
+                                if (!incRecsEnumerator.MoveNext())
+                                {
+                                    break;
+                                }
+                                current = incRecsEnumerator.Current;
+                            }
+                        }
+                    }
+                }
+
+                /*Records.AddRange(cachedRecords.Records);
                 Records.Sort(comparer);
+
+                var counter = 1;
+                var prevRec = default(Record?);
 
                 for (var i = 0; i < Records.Count; i++)
                 {
-                    globalRanks[Records[i]] = i + 1;
-                }
+                    var rec = Records[i];
+
+                    if (prevRec.HasValue)
+                    {
+                        counter += prevRec.Value.Count;
+                    }
+
+                    globalRanks[rec] = counter;
+
+                    prevRec = rec;
+                }*/
 
                 if (DateTimeOffset.Now - cachedRecords.RequestedAt < TimeSpan.FromMinutes(5))
                 {
@@ -362,11 +403,10 @@
         if (recordRequestTokenSources.Count == 0)
         {
             ChangeNavigation();
-
-            ReloadRecords();
             TableLoading = false;
         }
 
+        ReloadRecords();
         StateHasChanged();
     }
 
@@ -426,9 +466,9 @@
     {
         if (globalRanks.TryGetValue(rec, out var rank))
         {
-            return $"{rank} ({rec.Rank})";
+            return $"{rank} ({rec.PlatformRank})";
         }
 
-        return $"- ({rec.Rank})";
+        return $"- ({rec.PlatformRank})";
     }
 }

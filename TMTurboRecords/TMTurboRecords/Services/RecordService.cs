@@ -1,11 +1,8 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
-using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading;
 using System.Xml.Linq;
 using TmEssentials;
-using TMTurboRecords.Shared;
 using TMTurboRecords.Shared.Models;
 
 namespace TMTurboRecords.Services;
@@ -64,18 +61,30 @@ public sealed class RecordService
         var rankedRecs = new List<RankedRecord>();
 
         var rank = 1;
+        var rankOffset = 0;
         var prevTime = default(TimeInt32?);
 
         await foreach (var rec in GatherRecordsAsync(platformStrings, mapUid, zone, cancellationToken).OrderBy(x => x))
         {
-            rankedRecs.Add(new RankedRecord(rank, rec));
-
-            if (rec.Time != prevTime)
+            if (rec.Time is null)
             {
-                rank++;
+                rankedRecs.Add(new RankedRecord(rank, rec));
+                continue;
+            }
+
+            if (prevTime is not null && rec.Time == prevTime)
+            {
+                rankOffset++;
+            }
+            else
+            {
+                rank += rankOffset;
+                rankOffset = 1;
             }
 
             prevTime = rec.Time;
+
+            rankedRecs.Add(new RankedRecord(rank, rec));
         }
 
         return rankedRecs;
@@ -149,6 +158,7 @@ public sealed class RecordService
         {
             Content = new StringContent(xmlRequest, Encoding.UTF8, "application/xml")
         }, cancellationToken);
+
         response.EnsureSuccessStatusCode();
 
         var responseXml = await response.Content.ReadAsStringAsync(cancellationToken);

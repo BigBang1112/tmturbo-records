@@ -1,28 +1,28 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Xml.Linq;
 using TmEssentials;
+using TMTurboRecords.Models;
 using TMTurboRecords.Shared.Models;
 
 namespace TMTurboRecords.Services;
 
 public sealed class RecordService
 {
-    private readonly IHttpClientFactory httpFactory;
+    private readonly RequestService requestService;
     private readonly ZoneService zoneService;
     private readonly IMemoryCache cache;
     private readonly ILogger<RecordService> logger;
 
-    public RecordService(IHttpClientFactory httpFactory, ZoneService zoneService, IMemoryCache cache, ILogger<RecordService> logger)
+    public RecordService(RequestService requestService, ZoneService zoneService, IMemoryCache cache, ILogger<RecordService> logger)
     {
-        this.httpFactory = httpFactory;
+        this.requestService = requestService;
         this.zoneService = zoneService;
         this.cache = cache;
         this.logger = logger;
     }
 
-    public async Task<List<RankedRecord>> GetRecordsAsync(Platform platform, string mapUid, string? zone, CancellationToken cancellationToken)
+    public async Task<RecordsResponse> GetRecordsAsync(Platform platform, string mapUid, string? zone, CancellationToken cancellationToken)
     {
         if ((uint)platform > 7)
         {
@@ -48,17 +48,34 @@ public sealed class RecordService
 
         var platformStrings = platform.ToString().Split(", ");
 
+        List<RankedRecord> rankedRecs;
+
         if (platformStrings.Length == 1)
         {
-            var records = cache.Get<List<Record>>($"Records_{platform}_{mapUid}_{zone}");
+            var recordsResp = cache.Get<RecordsXmlResponse>($"Records_{platform}_{mapUid}_{zone}");
 
-            if (records is not null)
+            if (recordsResp is not null)
             {
-                return records.Select(x => new RankedRecord(x.PlatformRank, x)).ToList();
+                rankedRecs = recordsResp.Records.Select(x => new RankedRecord(x.PlatformRank, x)).ToList();
+
+                return new RecordsResponse
+                {
+                    Platforms = new()
+                    {
+                        [platform.ToString()] = new PlatformResponse
+                        {
+                            Count = recordsResp.Records.Count,
+                            Timestamp = recordsResp.Timestamp,
+                            Error = recordsResp.Error
+                        }
+                    },
+                    RecordDistributionGraph = GetRecordDistributionGraph(rankedRecs),
+                    Records = rankedRecs
+                };
             }
         }
 
-        var rankedRecs = new List<RankedRecord>();
+        rankedRecs = [];
 
         var rank = 1;
         var rankOffset = 0;
@@ -87,12 +104,37 @@ public sealed class RecordService
             rankedRecs.Add(new RankedRecord(rank, rec));
         }
 
-        return rankedRecs;
+        var platformRespDict = new Dictionary<string, PlatformResponse>();
+        var graph = new RecordDistributionGraph();
+
+        foreach (var p in platformStrings)
+        {
+            var recordsResp = cache.Get<RecordsXmlResponse>($"Records_{p}_{mapUid}_{zone}");
+
+            if (recordsResp is null)
+            {
+                continue;
+            }
+
+            platformRespDict[p] = new PlatformResponse
+            {
+                Count = recordsResp.Records.Count,
+                Timestamp = recordsResp.Timestamp,
+                Error = recordsResp.Error
+            };
+        }
+
+        return new RecordsResponse
+        {
+            Records = rankedRecs,
+            Platforms = platformRespDict,
+            RecordDistributionGraph = GetRecordDistributionGraph(rankedRecs)
+        };
     }
 
     private async IAsyncEnumerable<Record> GatherRecordsAsync(string[] platformStrings, string mapUid, string zone, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var recordTasks = new List<Task<List<Record>>>();
+        var recordTasks = new List<Task<RecordsXmlResponse>>();
         var platformDict = new Dictionary<Task, string>();
 
         var xmlRequest = $@"<root>
@@ -118,11 +160,11 @@ public sealed class RecordService
         {
             if (platformStrings.Length > 1)
             {
-                var records = cache.Get<List<Record>>($"Records_{p}_{mapUid}_{zone}");
+                var recordsResp = cache.Get<RecordsXmlResponse>($"Records_{p}_{mapUid}_{zone}");
 
-                if (records is not null)
+                if (recordsResp is not null)
                 {
-                    foreach (var record in records)
+                    foreach (var record in recordsResp.Records)
                     {
                         yield return record;
                     }
@@ -131,6 +173,7 @@ public sealed class RecordService
             }
 
             var task = GetRecordsAsync(p, xmlRequest, cancellationToken);
+
             recordTasks.Add(task);
             platformDict.Add(task, p);
         }
@@ -139,25 +182,22 @@ public sealed class RecordService
 
         foreach (var task in recordTasks)
         {
-            var list = await task;
+            var response = await task;
 
-            cache.Set($"Records_{platformDict[task]}_{mapUid}_{zone}", list, TimeSpan.FromMinutes(5));
+            cache.Set($"Records_{platformDict[task]}_{mapUid}_{zone}", response, TimeSpan.FromMinutes(5));
 
-            foreach (var record in list)
+            foreach (var record in response.Records)
             {
                 yield return record;
             }
         }
     }
 
-    private async Task<List<Record>> GetRecordsAsync(string platformId, string xmlRequest, CancellationToken cancellationToken)
+    private async Task<RecordsXmlResponse> GetRecordsAsync(string platformId, string xmlRequest, CancellationToken cancellationToken)
     {
         var platformEnum = Enum.Parse<Platform>(platformId);
 
-        using var response = await httpFactory.CreateClient("001-" + platformId.ToLowerInvariant()).SendAsync(new HttpRequestMessage(HttpMethod.Post, "")
-        {
-            Content = new StringContent(xmlRequest, Encoding.UTF8, "application/xml")
-        }, cancellationToken);
+        using var response = await requestService.RequestAsync(platformEnum, xmlRequest, cancellationToken);
 
         response.EnsureSuccessStatusCode();
 
@@ -170,13 +210,16 @@ public sealed class RecordService
 
         if (contentElement is null)
         {
+            var errorStr = "";
+
             if (responseElement?.Element("e") is XElement errorElement)
             {
                 // Error
-                logger.LogError("XML-RPC error: {Error}", errorElement.Element("m")?.Value);
+                errorStr = errorElement.Element("m")?.Value;
+                logger.LogError("XML-RPC error: {Error}", errorStr);
             }
 
-            return [];
+            return new RecordsXmlResponse(null, [], errorStr);
         }
 
         var dateResponse = contentElement.Element("d")?.Value;
@@ -185,7 +228,7 @@ public sealed class RecordService
             ? DateTimeOffset.FromUnixTimeSeconds(dateLong)
             : default(DateTimeOffset?);
 
-        return contentElement.Elements("i")
+        var recs = contentElement.Elements("i")
             .Select((element, index) =>
             {
                 var timeMs = (int)uint.Parse(element.Element("s")?.Value ?? "0");
@@ -201,5 +244,126 @@ public sealed class RecordService
                 return record;
             })
             .ToList();
+
+        return new RecordsXmlResponse(date, recs, null);
+    }
+
+    private static RecordDistributionGraph GetRecordDistributionGraph(List<RankedRecord> records)
+    {
+        var graph = new RecordDistributionGraph();
+
+        if (records.Count == 0)
+        {
+            return graph;
+        }
+
+        var xs = new Dictionary<int, int>();
+
+        var currentSecond = default(int?);
+
+        foreach (var recs in records.GroupBy(x => x.Record.Platform))
+        {
+            if (!recs.Any())
+            {
+                continue;
+            }
+
+            var startingRec = recs.First();
+            var offsetRec = startingRec;
+
+            if (startingRec.Record.Time is null || offsetRec.Record.Time is null)
+            {
+                continue;
+            }
+
+            var recCount = 0;
+            var recCountsPer100ms = new List<double>();
+            var prevSec = startingRec.Record.Time.Value.TotalSeconds;
+
+            var xIndex = 0;
+
+            foreach (var record in recs)
+            {
+                if (record.Record.Time is null)
+                {
+                    break;
+                }
+
+                if (record.Record.Time.Value.TotalMilliseconds - startingRec.Record.Time.Value.TotalMilliseconds > 10000)
+                {
+                    break;
+                }
+
+                recCount += record.Record.Count;
+
+                if (record.Record.Time.Value.TotalMilliseconds - offsetRec.Record.Time.Value.TotalMilliseconds > 100)
+                {
+                    recCountsPer100ms.Add(recCount);
+                    xIndex++;
+                    recCount = 0;
+                    offsetRec = record;
+
+                    var sec = (int)(record.Record.Time.Value.TotalSeconds);
+
+                    if (currentSecond is null || sec > currentSecond)
+                    {
+                        if (sec > currentSecond)
+                        {
+                            xs[sec] = xIndex - 10; // idk why I do this
+                            continue; //
+                        }
+
+                        currentSecond = sec;
+                    }
+
+                }
+            }
+
+            graph.Y[recs.Key.ToString()] = recCountsPer100ms.ToArray();
+        }
+
+        /*var chunking = 100;
+
+
+        var xs = records.Select(x => x.Record.Time)
+            .OfType<TimeInt32>()
+            .Distinct()
+            .Chunk(chunking)
+            .Select(x => new TimeInt32((int)x.Average(x => x.TotalMilliseconds)))
+            .Take(10);
+
+        var x = new string[100];
+
+        var counter = 0;
+
+        foreach (var xVal in xs)
+        {
+            if (counter == 100)
+            {
+                x[counter - 1] = xVal.ToString();
+                break;
+            }
+
+            x[counter] = xVal.ToString();
+            counter += 10;
+        }
+
+        graph.X = x;
+
+        graph.Y = records.GroupBy(x => x.Record.Platform).ToDictionary(
+            x => x.Key.ToString(),
+            x => x.Select(x => x.Record.Count).Chunk(chunking).Select(x => x.Average()).Take(100).ToArray()
+        );*/
+
+        graph.X = new string[graph.Y.Max(x => x.Value.Length)];
+
+        var reverseDict = xs.ToDictionary(x => x.Value, x => x.Key);
+
+        for (var i = 0; i < graph.X.Length; i++)
+        {
+            graph.X[i] = reverseDict.TryGetValue(i, out var x) ? TimeInt32.FromSeconds(x).ToString() : "";
+        }
+
+        return graph;
     }
 }

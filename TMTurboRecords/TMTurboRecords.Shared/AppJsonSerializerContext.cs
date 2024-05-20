@@ -3,7 +3,7 @@ using TMTurboRecords.Shared.Models;
 
 namespace TMTurboRecords.Shared;
 
-[JsonSerializable(typeof(List<RankedRecord>))]
+[JsonSerializable(typeof(RecordsResponse))]
 public partial class AppJsonSerializerContext : JsonSerializerContext
 {
     private static readonly System.Text.Json.JsonSerializerOptions jsonOptions = new() { PropertyNameCaseInsensitive = true };

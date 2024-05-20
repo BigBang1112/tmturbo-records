@@ -36,6 +36,8 @@
     {
         PlatformQueryToPlatforms(PlatformQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
+
+    var commitUrl = $"{ThisAssembly.Git.Url}/{ThisAssembly.Git.Commit}";
 }
 
 <MudContainer MaxWidth="MaxWidth.Medium">
@@ -89,15 +91,75 @@
         <MudDataGrid Items="@Records" Filterable="false" Hover="false" Dense="true" Virtualize="true" Breakpoint="Breakpoint.None" Loading="@TableLoading" LoadingProgressColor="Color.Info">
             <Columns>
                 <PropertyColumn Property="x => x.Rank" Title="Rank" />
-                <PropertyColumn Property="x => x.Record.PlatformRank" Title="Platform Rank" />
-                <PropertyColumn Property="x => x.Record.Time.ToTmString(false, false)" Title="Time" />
-                <PropertyColumn Property="x => x.Record.Count" Title="Count" />
-                <PropertyColumn Property="x => x.Record.Platform" Title="Platform" />
+                <TemplateColumn Title="Time">
+                    <CellTemplate>
+                        <MudStack AlignItems="AlignItems.Center" Row>
+                            <MudText>@context.Item.Record.Time.ToTmString(false, false)</MudText>
+
+                            @if (context.Item.Record.Count > 1)
+                            {
+                                <MudText>x@(context.Item.Record.Count)</MudText>
+                            }
+                        </MudStack>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Platform (rank)">
+                    <CellTemplate>
+                        <MudStack AlignItems="AlignItems.Center" Row>
+                            @switch (context.Item.Record.Platform)
+                            {
+                                case Platform.PC:
+                                    <MudTooltip Text="PC">
+                                        <MudIcon Icon="fas fa-computer" Color="Color.Primary" />
+                                    </MudTooltip>
+                                    break;
+                                case Platform.XB1:
+                                    <MudTooltip Text="Xbox One">
+                                        <MudIcon Icon="fab fa-xbox" Color="Color.Success" />
+                                    </MudTooltip>
+                                    break;
+                                case Platform.PS4:
+                                    <MudTooltip Text="PS4">
+                                        <MudIcon Icon="fab fa-playstation" Color="Color.Info" />
+                                    </MudTooltip>
+                                    break;
+                            }
+                            <MudText Typo="Typo.body2">(@context.Item.Record.PlatformRank)</MudText>
+                        </MudStack>
+                    </CellTemplate>
+                </TemplateColumn>
             </Columns>
             <PagerContent>
                 <MudDataGridPager T="RankedRecord" />
             </PagerContent>
         </MudDataGrid>
+        <MudTable Dense="true" T="(string, PlatformResponse)" Items="@PlatformResponses.Select(x => (x.Key, x.Value))" Breakpoint="Breakpoint.None">
+            <HeaderContent>
+                <MudTh>Platform</MudTh>
+                <MudTh>Records</MudTh>
+                <MudTh>Timestamp</MudTh>
+                <MudTh>Details</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Platform">@context.Item1</MudTd>
+                <MudTd DataLabel="Records">@context.Item2.Count</MudTd>
+                <MudTd DataLabel="Timestamp">@context.Item2.Timestamp</MudTd>
+                <MudTd DataLabel="Details">@context.Item2.Error</MudTd>
+            </RowTemplate>
+            <FooterContent>
+                <MudTd></MudTd>
+                <MudTd>@PlatformResponses.Sum(x => x.Value.Count)</MudTd>
+            </FooterContent>
+        </MudTable>
+        <MudExpansionPanels>
+            <MudExpansionPanel Text="Record Distribution Graph (work in progress)">
+                <MudChart ChartType="ChartType.Line" XAxisLabels="@XAxisLabels" ChartSeries="@Series" Width="100%" Height="400" ChartOptions="options"></MudChart>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+        <MudDivider></MudDivider>
+        <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.End" Justify="Justify.FlexEnd">
+            <MudText Typo="Typo.caption">Material Design with <MudLink Href="https://mudblazor.com/" Typo="Typo.caption">MudBlazor</MudLink> - CC0 License - <MudLink Href="@commitUrl" Typo="Typo.caption">@ThisAssembly.Git.Sha</MudLink></MudText>
+        </MudStack>
     </MudStack>
 </MudContainer>
 <MudScrollToTop>
@@ -122,7 +184,14 @@
 
     public Dictionary<string, Zone>? Zones { get; set; }
 
+    public Dictionary<string, PlatformResponse> PlatformResponses { get; set; } = [];
     public List<RankedRecord> Records { get; set; } = [];
+
+
+    ChartOptions options = new ChartOptions();
+    public List<ChartSeries> Series { get; set; } = [];
+    public string[] XAxisLabels { get; set; } = [];
+
 
     public bool TableLoading { get; set; }
 
@@ -256,7 +325,24 @@
 
         if (Cache.CachedRecords.TryGetValue(GetCachedRecordsKey(), out CachedRecords? cachedRecords))
         {
-            Records = cachedRecords.Records;
+            Records = cachedRecords.Response.Records ?? [];
+            PlatformResponses = cachedRecords.Response.Platforms ?? [];
+
+            if (cachedRecords.Response.RecordDistributionGraph is null)
+            {
+                XAxisLabels = [];
+                Series = [];
+            }
+            else
+            {
+                XAxisLabels = cachedRecords.Response.RecordDistributionGraph.X?.Select(x => x is null ? "" : x).ToArray() ?? [];
+                Series = cachedRecords.Response.RecordDistributionGraph.Y
+                    .Select(x => new ChartSeries
+                        {
+                            Name = x.Key,
+                            Data = x.Value
+                        }).ToList();
+            }
 
             if (DateTimeOffset.Now - cachedRecords.RequestedAt < TimeSpan.FromMinutes(5))
             {
@@ -319,11 +405,11 @@
             return;
         }
 
-        List<RankedRecord> records;
+        RecordsResponse records;
 
         try
         {
-            records = await response.Content.ReadFromJsonAsync<List<RankedRecord>>(AppJsonSerializerContext.Optimized.ListRankedRecord) ?? [];
+            records = await response.Content.ReadFromJsonAsync<RecordsResponse>(AppJsonSerializerContext.Optimized.RecordsResponse) ?? throw new Exception("RecordsResponse is null");
         }
         catch (Exception ex)
         {

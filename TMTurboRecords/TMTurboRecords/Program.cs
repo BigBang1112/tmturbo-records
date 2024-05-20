@@ -8,13 +8,17 @@ using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Http.Json;
 using TMTurboRecords.Shared;
 using System.Net;
+using TMTurboRecords.Shared.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddResponseCompression(options =>
+if (!builder.Environment.IsDevelopment())
 {
-    options.EnableForHttps = true;
-});
+    builder.Services.AddResponseCompression(options =>
+    {
+        options.EnableForHttps = true;
+    });
+}
 
 builder.Services.AddMemoryCache();
 builder.Services.AddEndpointsApiExplorer();
@@ -23,24 +27,23 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "TMTR", Version = "v1" });
 });
 
-foreach (var platform in MasterServer.Platforms)
+foreach (var platform in Enum.GetValues<Platform>().Skip(1).Select(x => x.GetInitClientName()))
 {
-    for (var i = 1; i <= 3; i++)
+    builder.Services.AddHttpClient(platform, client =>
     {
-        var platformServer = $"{i:000}-{platform}";
-
-        builder.Services.AddHttpClient(platformServer, client =>
-        {
-            client.DefaultRequestHeaders.AcceptEncoding.Add(new("gzip"));
-            client.BaseAddress = new Uri($"http://mp{platformServer}.turbo.trackmania.com/game/request.php");
-        })
-            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-            {
-                PooledConnectionLifetime = TimeSpan.FromMinutes(10),
-                AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
-            });
-    }
+        client.BaseAddress = new Uri($"http://{platform}.turbo.trackmania.com/game/request.php");
+    });
 }
+
+builder.Services.AddHttpClient("relay", client =>
+{
+    client.DefaultRequestHeaders.AcceptEncoding.Add(new("gzip"));
+})
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+        AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
+    });
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -49,6 +52,9 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddBlazoredLocalStorage();
 
+builder.Services.AddHostedService<Startup>();
+
+builder.Services.AddTransient<RequestService>();
 builder.Services.AddTransient<ZoneService>();
 builder.Services.AddTransient<RecordService>();
 
@@ -76,9 +82,13 @@ else
 
 app.UseHttpsRedirection();
 
-app.UseResponseCompression();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseResponseCompression();
+}
 
 app.UseStaticFiles();
+
 app.UseAntiforgery();
 
 app.UseSwagger();

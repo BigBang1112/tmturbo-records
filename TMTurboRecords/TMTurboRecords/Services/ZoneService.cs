@@ -1,20 +1,19 @@
 ﻿using Microsoft.Extensions.Caching.Memory;
-using System.Collections.Concurrent;
-using System.Text;
 using System.Xml.Linq;
+using TMTurboRecords.Extensions;
 using TMTurboRecords.Shared.Models;
 
 namespace TMTurboRecords.Services;
 
 public sealed class ZoneService
 {
-    private readonly IHttpClientFactory httpFactory;
+    private readonly RequestService requestService;
     private readonly IMemoryCache cache;
     private readonly ILogger<ZoneService> logger;
 
-    public ZoneService(IHttpClientFactory httpFactory, IMemoryCache cache, ILogger<ZoneService> logger)
+    public ZoneService(RequestService requestService, IMemoryCache cache, ILogger<ZoneService> logger)
     {
-        this.httpFactory = httpFactory;
+        this.requestService = requestService;
         this.cache = cache;
         this.logger = logger;
     }
@@ -39,24 +38,16 @@ public sealed class ZoneService
     </request>
 </root>";
 
+        var requests = new Dictionary<string, Task<HttpResponseMessage>>(PlatformExtensions.Platforms.Count());
 
-        var requests = new Dictionary<string, Task<HttpResponseMessage>>(MasterServer.Platforms.Count);
-
-        var platformRequests = MasterServer.Platforms
-            .ToDictionary(
-                platform => platform,
-                // Only check from the first master server of the platform
-                platform => httpFactory.CreateClient("001-" + platform).SendAsync(new HttpRequestMessage(HttpMethod.Post, "")
-                {
-                    Content = new StringContent(xmlRequest, Encoding.UTF8, "application/xml")
-                }, cancellationToken)
-            );
+        var platformRequests = PlatformExtensions.Platforms
+            .ToDictionary(x => x, x => requestService.RequestAsync(x, xmlRequest, cancellationToken));
 
         await Task.WhenAll(platformRequests.Values);
 
         zones = [];
 
-        foreach (var (platformName, responseTask) in platformRequests)
+        foreach (var (platform, responseTask) in platformRequests)
         {
             if (!responseTask.Result.IsSuccessStatusCode)
             {
@@ -81,14 +72,6 @@ public sealed class ZoneService
 
                 continue;
             }
-
-            var platform = platformName switch
-            {
-                "pc" => Platform.PC,
-                "xb1" => Platform.XB1,
-                "ps4" => Platform.PS4,
-                _ => Platform.None
-            };
 
             foreach (var zoneElement in contentElement.Elements("l"))
             {

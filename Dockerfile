@@ -13,11 +13,11 @@ RUN dotnet restore $APPNAME/$APPNAME.csproj -a $TARGETARCH
 # copy and publish app and libraries
 COPY $APPNAME/ .
 WORKDIR /src/$APPNAME
-RUN dotnet publish -c $BUILD_CONFIGURATION -a $TARGETARCH -o /app --no-restore --self-contained
+RUN dotnet publish -c $BUILD_CONFIGURATION -a $TARGETARCH -o /app --no-restore
 
 
 # final stage/image
-FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
 EXPOSE 8080
 EXPOSE 8081
 WORKDIR /app

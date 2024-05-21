@@ -96,13 +96,13 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 
-app.UseAntiforgery();
-
 app.UseSwagger();
 
 app.MapScalarUi();
 
 app.UseEndpoints();
+
+app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()

@@ -90,7 +90,11 @@
         <MudDivider />
         <MudDataGrid Items="@Records" Filterable="false" Hover="false" Dense="true" Virtualize="true" Breakpoint="Breakpoint.None" Loading="@TableLoading" LoadingProgressColor="Color.Info">
             <Columns>
-                <PropertyColumn Property="x => x.Rank" Title="Rank" />
+                <TemplateColumn Title="Rank">
+                    <CellTemplate>
+                        <MudText>@context.Item.Rank</MudText>
+                    </CellTemplate>
+                </TemplateColumn>
                 <TemplateColumn Title="Time">
                     <CellTemplate>
                         <MudStack AlignItems="AlignItems.Center" Row>

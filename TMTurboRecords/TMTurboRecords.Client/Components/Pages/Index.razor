@@ -355,13 +355,15 @@
 
     private string GetCachedRecordsKey() => $"{MapUid}_{Platforms}_{(string.IsNullOrWhiteSpace(Zone) ? "World" : Zone)}";
 
+    private Task? task;
+
     private void RequestRecords()
     {
         TableLoading = true;
 
         recordRequestTokenSource?.Cancel();
         recordRequestTokenSource = new CancellationTokenSource();
-        Task.Run(async () =>
+        task = Task.Run(async () =>
         {
             using var response = await Http.GetAsync("api/v1/records/" + (int)Platforms + "/" + MapUid + (string.IsNullOrWhiteSpace(Zone) ? "" : ("/" + Zone)), recordRequestTokenSource.Token);
             await OnResponseAsync(response);

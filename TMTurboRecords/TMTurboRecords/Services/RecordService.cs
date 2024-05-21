@@ -118,7 +118,7 @@ public sealed class RecordService
 
             platformRespDict[p] = new PlatformResponse
             {
-                Count = recordsResp.Records.Count,
+                Count = recordsResp.Records.Sum(x => x.Count),
                 Timestamp = recordsResp.Timestamp,
                 Error = recordsResp.Error
             };

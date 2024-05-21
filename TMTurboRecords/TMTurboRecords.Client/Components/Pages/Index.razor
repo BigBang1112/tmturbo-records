@@ -72,7 +72,7 @@
                              Label="Map"
                              Variant="Variant.Filled"
                              SearchFunc="SearchMapsAsync"
-                             MaxItems="20"></MudAutocomplete>
+                             MaxItems="50"></MudAutocomplete>
             <MudTextField ValueChanged="MapUidChangedAsync"
                           Value="MapUid"
                           T="string"
@@ -85,7 +85,7 @@
                              Variant="Variant.Filled"
                              Placeholder="World"
                              SearchFunc="SearchZonesAsync"
-                             MaxItems="20"></MudAutocomplete>
+                             MaxItems="50"></MudAutocomplete>
         </MudStack>
         <MudDivider />
         <MudDataGrid Items="@Records" Filterable="false" Hover="false" Dense="true" Virtualize="true" Breakpoint="Breakpoint.None" Loading="@TableLoading" LoadingProgressColor="Color.Info">

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Caching.Memory;
+﻿using LazyCache;
 using System.Runtime.CompilerServices;
 using System.Xml.Linq;
 using TmEssentials;
@@ -11,10 +11,10 @@ public sealed class RecordService
 {
     private readonly RequestService requestService;
     private readonly ZoneService zoneService;
-    private readonly IMemoryCache cache;
+    private readonly IAppCache cache;
     private readonly ILogger<RecordService> logger;
 
-    public RecordService(RequestService requestService, ZoneService zoneService, IMemoryCache cache, ILogger<RecordService> logger)
+    public RecordService(RequestService requestService, ZoneService zoneService, IAppCache cache, ILogger<RecordService> logger)
     {
         this.requestService = requestService;
         this.zoneService = zoneService;
@@ -172,8 +172,8 @@ public sealed class RecordService
                 }
             }
 
-            var task = GetRecordsAsync(p, xmlRequest, cancellationToken);
-
+            var task = Task.Run(() => GetRecordsAsync(Enum.Parse<Platform>(p), xmlRequest, cancellationToken), cancellationToken);
+            await Task.Delay(100, cancellationToken);
             recordTasks.Add(task);
             platformDict.Add(task, p);
         }
@@ -184,7 +184,7 @@ public sealed class RecordService
         {
             var response = await task;
 
-            cache.Set($"Records_{platformDict[task]}_{mapUid}_{zone}", response, TimeSpan.FromMinutes(5));
+            cache.Add($"Records_{platformDict[task]}_{mapUid}_{zone}", response, TimeSpan.FromMinutes(5));
 
             foreach (var record in response.Records)
             {
@@ -193,13 +193,14 @@ public sealed class RecordService
         }
     }
 
-    private async Task<RecordsXmlResponse> GetRecordsAsync(string platformId, string xmlRequest, CancellationToken cancellationToken)
+    private async Task<RecordsXmlResponse> GetRecordsAsync(Platform platformEnum, string xmlRequest, CancellationToken cancellationToken)
     {
-        var platformEnum = Enum.Parse<Platform>(platformId);
-
         using var response = await requestService.RequestAsync(platformEnum, xmlRequest, cancellationToken);
 
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            return new RecordsXmlResponse(null, [], "Failed to get records");
+        }
 
         var responseXml = await response.Content.ReadAsStringAsync(cancellationToken);
 

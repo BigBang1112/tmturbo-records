@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Caching.Memory;
-using System.Collections.Concurrent;
+﻿using LazyCache;
 using System.Text;
 using System.Xml.Linq;
 using TMTurboRecords.Extensions;
@@ -10,10 +9,10 @@ namespace TMTurboRecords.Services;
 public sealed class RequestService
 {
     private readonly IHttpClientFactory httpFactory;
-    private readonly IMemoryCache cache;
+    private readonly IAppCache cache;
     private readonly ILogger<RequestService> logger;
 
-    public RequestService(IHttpClientFactory httpFactory, IMemoryCache cache, ILogger<RequestService> logger)
+    public RequestService(IHttpClientFactory httpFactory, IAppCache cache, ILogger<RequestService> logger)
     {
         this.httpFactory = httpFactory;
         this.cache = cache;
@@ -31,7 +30,7 @@ public sealed class RequestService
         {
             if (task.Result is not null)
             {
-                cache.Set($"RelayUrl_{platform}", task.Result, TimeSpan.FromDays(1));
+                cache.Add($"RelayUrl_{platform}", task.Result, TimeSpan.FromDays(1));
             }
         }
     }
@@ -104,14 +103,14 @@ public sealed class RequestService
 
     public async Task<HttpResponseMessage> RequestAsync(Platform platform, string xmlContent, CancellationToken cancellationToken)
     {
-        var relayUrl = await cache.GetOrCreateAsync($"RelayUrl_{platform}", async entry =>
+        var relayUrl = await cache.GetOrAddAsync($"RelayUrl_{platform}", async entry =>
         {
             var url = await InitAsync(platform, cancellationToken) ?? throw new InvalidOperationException("Failed to initialize relay client");
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(1);
             return url;
         });
 
-        var relayClient = httpFactory.CreateClient("relay");
+        var relayClient = httpFactory.CreateClient($"relay-{platform}");
 
         return await relayClient.SendAsync(new HttpRequestMessage(HttpMethod.Post, $"https://{relayUrl}/game/request.php")
         {

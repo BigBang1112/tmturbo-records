@@ -27,30 +27,30 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-builder.Services.AddMemoryCache();
+builder.Services.AddLazyCache();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "TMTR", Version = "v1" });
 });
 
-foreach (var platform in Enum.GetValues<Platform>().Skip(1).Select(x => x.GetInitClientName()))
+foreach (var platform in Enum.GetValues<Platform>().Skip(1))
 {
-    builder.Services.AddHttpClient(platform, client =>
+    builder.Services.AddHttpClient(platform.GetInitClientName(), client =>
     {
         client.BaseAddress = new Uri($"http://{platform}.turbo.trackmania.com/game/request.php");
     });
-}
 
-builder.Services.AddHttpClient("relay", client =>
-{
-    client.DefaultRequestHeaders.AcceptEncoding.Add(new("gzip"));
-})
-    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    builder.Services.AddHttpClient($"relay-{platform}", client =>
     {
-        PooledConnectionLifetime = TimeSpan.FromMinutes(10),
-        AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
-    });
+        client.DefaultRequestHeaders.AcceptEncoding.Add(new("gzip"));
+        client.Timeout = TimeSpan.FromSeconds(10);
+    })
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.Deflate | DecompressionMethods.GZip
+        });
+}
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -61,7 +61,7 @@ builder.Services.AddBlazoredLocalStorage();
 
 builder.Services.AddHostedService<Startup>();
 
-builder.Services.AddTransient<RequestService>();
+builder.Services.AddSingleton<RequestService>();
 builder.Services.AddTransient<ZoneService>();
 builder.Services.AddTransient<RecordService>();
 

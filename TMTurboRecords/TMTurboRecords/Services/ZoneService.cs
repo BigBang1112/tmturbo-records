@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Caching.Memory;
+﻿using LazyCache;
 using System.Xml.Linq;
 using TMTurboRecords.Extensions;
 using TMTurboRecords.Shared.Models;
@@ -8,10 +8,10 @@ namespace TMTurboRecords.Services;
 public sealed class ZoneService
 {
     private readonly RequestService requestService;
-    private readonly IMemoryCache cache;
+    private readonly IAppCache cache;
     private readonly ILogger<ZoneService> logger;
 
-    public ZoneService(RequestService requestService, IMemoryCache cache, ILogger<ZoneService> logger)
+    public ZoneService(RequestService requestService, IAppCache cache, ILogger<ZoneService> logger)
     {
         this.requestService = requestService;
         this.cache = cache;
@@ -99,7 +99,7 @@ public sealed class ZoneService
             responseTask.Result.Dispose();
         }
 
-        cache.Set("Zones", zones, TimeSpan.FromDays(1));
+        cache.Add("Zones", zones, TimeSpan.FromDays(1));
 
         return zones;
     }

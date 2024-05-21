@@ -91,12 +91,12 @@ public sealed class RecordService
 
             if (prevTime is not null && rec.Time == prevTime)
             {
-                rankOffset++;
+                rankOffset += rec.Count;
             }
             else
             {
                 rank += rankOffset;
-                rankOffset = 1;
+                rankOffset = rec.Count;
             }
 
             prevTime = rec.Time;
@@ -229,22 +229,26 @@ public sealed class RecordService
             ? DateTimeOffset.FromUnixTimeSeconds(dateLong)
             : default(DateTimeOffset?);
 
-        var recs = contentElement.Elements("i")
-            .Select((element, index) =>
+        var recs = new List<Record>();
+
+        var rank = 1;
+
+        foreach (var element in contentElement.Elements("i"))
+        {
+            var timeMs = (int)uint.Parse(element.Element("s")?.Value ?? "0");
+
+            var record = new Record
             {
-                var timeMs = (int)uint.Parse(element.Element("s")?.Value ?? "0");
+                PlatformRank = rank,
+                Time = timeMs == -1 ? null : new(timeMs),
+                Count = int.Parse(element.Element("c")?.Value ?? "0"),
+                Platform = platformEnum
+            };
 
-                var record = new Record
-                {
-                    PlatformRank = index + 1,
-                    Time = timeMs == -1 ? null : new(timeMs),
-                    Count = int.Parse(element.Element("c")?.Value ?? "0"),
-                    Platform = platformEnum
-                };
+            rank += record.Count;
 
-                return record;
-            })
-            .ToList();
+            recs.Add(record);
+        }
 
         return new RecordsXmlResponse(date, recs, null);
     }

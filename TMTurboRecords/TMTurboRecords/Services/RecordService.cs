@@ -357,7 +357,11 @@ public sealed class RecordService
 
         graph.X = new string[graph.Y.Max(x => x.Value.Length)];
 
-        var reverseDict = xs.ToDictionary(x => x.Value, x => x.Key);
+        var reverseDict = new Dictionary<int, int>();
+        foreach (var pair in xs)
+        {
+            reverseDict[pair.Value] = pair.Key;
+        }
 
         for (var i = 0; i < graph.X.Length; i++)
         {

@@ -9,16 +9,23 @@ using Microsoft.AspNetCore.Http.Json;
 using TMTurboRecords.Shared;
 using System.Net;
 using TMTurboRecords.Shared.Models;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
-if (!builder.Environment.IsDevelopment())
+builder.Services.AddResponseCompression(options =>
 {
-    builder.Services.AddResponseCompression(options =>
-    {
-        options.EnableForHttps = true;
-    });
-}
+    options.EnableForHttps = true;
+});
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddMemoryCache();
 builder.Services.AddEndpointsApiExplorer();
@@ -68,6 +75,8 @@ builder.Services.Configure<JsonOptions>(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -79,8 +88,6 @@ else
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-
-app.UseHttpsRedirection();
 
 if (!app.Environment.IsDevelopment())
 {

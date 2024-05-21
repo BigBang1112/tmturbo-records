@@ -148,7 +148,7 @@
             </RowTemplate>
             <FooterContent>
                 <MudTd></MudTd>
-                <MudTd>@PlatformResponses.Sum(x => x.Value.Count)</MudTd>
+                <MudTd>@GetTotalRecordCount()</MudTd>
             </FooterContent>
         </MudTable>
         <MudExpansionPanels>
@@ -479,5 +479,18 @@
                 NavigateToWithQueryParam($"{MapUid}/{Zone}", "p", platformQuery);
             }
         }
+    }
+
+    private int? GetTotalRecordCount()
+    {
+        foreach (var platform in PlatformResponses)
+        {
+            if (platform.Value.Count > 0)
+            {
+                return PlatformResponses.Sum(x => x.Value.Count);
+            }
+        }
+
+        return null;
     }
 }

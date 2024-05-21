@@ -147,7 +147,7 @@
             <RowTemplate>
                 <MudTd DataLabel="Platform">@context.Item1</MudTd>
                 <MudTd DataLabel="Records">@context.Item2.Count</MudTd>
-                <MudTd DataLabel="Timestamp">@context.Item2.Timestamp</MudTd>
+                <MudTd DataLabel="Timestamp"><BlazorTime.ToLocal DateTime="@context.Item2.Timestamp.GetValueOrDefault().UtcDateTime" /></MudTd>
                 <MudTd DataLabel="Details">@context.Item2.Error</MudTd>
             </RowTemplate>
             <FooterContent>

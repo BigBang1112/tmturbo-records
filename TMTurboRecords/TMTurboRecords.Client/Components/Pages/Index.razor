@@ -148,7 +148,21 @@
             <HeaderContent>
                 <MudTh>Platform</MudTh>
                 <MudTh>Records</MudTh>
-                <MudTh>Timestamp</MudTh>
+                <MudTh>
+                    <MudTooltip Text="Date and time of this record data set. This is sent by the master server.">
+                        Timestamp
+                    </MudTooltip>
+                </MudTh>
+                <MudTh>
+                    <MudTooltip Text="How long this record data set took to receive. It does not include timeouts.">
+                        Request time
+                    </MudTooltip>
+                </MudTh>
+                <MudTh>
+                    <MudTooltip Text="How long this record data set took to process by the master server. This is sent by the master server.">
+                        Execution time
+                    </MudTooltip>
+                </MudTh>
                 <MudTh>Details</MudTh>
             </HeaderContent>
             <RowTemplate>
@@ -158,6 +172,20 @@
                     @if (context.Item2.Timestamp.HasValue)
                     {
                         <BlazorTime.ToLocal DateTime="@context.Item2.Timestamp.Value.UtcDateTime" />
+                    }
+                </MudTd>
+                <MudTd DataLabel="Request time">
+                    @if (context.Item2.RequestTime.HasValue)
+                    {
+                        <span>@context.Item2.RequestTime.Value.ToString("0.000")</span>
+                        <span>s</span>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Execution time">
+                    @if (context.Item2.ExecutionTime.HasValue)
+                    {
+                        <span>@context.Item2.ExecutionTime.Value.ToString("0.000")</span>
+                        <span>s</span>
                     }
                 </MudTd>
                 <MudTd DataLabel="Details">@context.Item2.Error</MudTd>

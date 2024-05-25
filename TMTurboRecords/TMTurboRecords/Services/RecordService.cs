@@ -1,4 +1,5 @@
 ﻿using LazyCache;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Xml.Linq;
 using TmEssentials;
@@ -66,7 +67,9 @@ public sealed class RecordService
                         {
                             Count = recordsResp.Records.Count,
                             Timestamp = recordsResp.Timestamp,
-                            Error = recordsResp.Error
+                            Error = recordsResp.Error,
+                            RequestTime = recordsResp.RequestTime,
+                            ExecutionTime = recordsResp.ExecutionTime
                         }
                     },
                     RecordDistributionGraph = GetRecordDistributionGraph(rankedRecs),
@@ -120,7 +123,9 @@ public sealed class RecordService
             {
                 Count = recordsResp.Records.Sum(x => x.Count),
                 Timestamp = recordsResp.Timestamp,
-                Error = recordsResp.Error
+                Error = recordsResp.Error,
+                RequestTime = recordsResp.RequestTime,
+                ExecutionTime = recordsResp.ExecutionTime
             };
         }
 
@@ -195,19 +200,27 @@ public sealed class RecordService
 
     private async Task<RecordsXmlResponse> GetRecordsAsync(Platform platformEnum, string xmlRequest, CancellationToken cancellationToken)
     {
+        var watch = Stopwatch.StartNew();
+        
         using var response = await requestService.RequestAsync(platformEnum, xmlRequest, cancellationToken);
+
+        var requestTime = watch.Elapsed.TotalSeconds;
 
         if (!response.IsSuccessStatusCode)
         {
-            return new RecordsXmlResponse(null, [], "Failed to get records");
+            return new RecordsXmlResponse(null, [], $"Status code: {response.StatusCode}", requestTime, null);
         }
 
         var responseXml = await response.Content.ReadAsStringAsync(cancellationToken);
 
         var xml = XDocument.Parse(responseXml);
 
-        var responseElement = xml.Element("r")?.Element("r");
+        var requestElement = xml.Element("r");
+        var responseElement = requestElement?.Element("r");
         var contentElement = responseElement?.Element("c");
+        var executionTimeElement = requestElement?.Element("e");
+        var executionTime = executionTimeElement is null ? default(double?)
+            : double.Parse(RegexUtils.ExecutionTimeRegex().Match(executionTimeElement.Value).Groups[1].Value);
 
         if (contentElement is null)
         {
@@ -220,7 +233,7 @@ public sealed class RecordService
                 logger.LogError("XML-RPC error: {Error}", errorStr);
             }
 
-            return new RecordsXmlResponse(null, [], errorStr);
+            return new RecordsXmlResponse(null, [], errorStr, requestTime, null);
         }
 
         var dateResponse = contentElement.Element("d")?.Value;
@@ -250,7 +263,7 @@ public sealed class RecordService
             recs.Add(record);
         }
 
-        return new RecordsXmlResponse(date, recs, null);
+        return new RecordsXmlResponse(date, recs, null, requestTime, executionTime);
     }
 
     private static RecordDistributionGraph GetRecordDistributionGraph(List<RankedRecord> records)

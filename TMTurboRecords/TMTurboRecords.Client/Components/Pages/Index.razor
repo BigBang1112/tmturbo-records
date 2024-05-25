@@ -138,7 +138,10 @@
                 </TemplateColumn>
             </Columns>
             <PagerContent>
-                <MudDataGridPager T="RankedRecord" />
+                @if (Records.Count > 0)
+                {
+                    <MudDataGridPager T="RankedRecord" />
+                }
             </PagerContent>
         </MudDataGrid>
         <MudTable Dense="true" T="(string, PlatformResponse)" Items="@PlatformResponses.Select(x => (x.Key, x.Value))" Breakpoint="Breakpoint.None">
@@ -151,7 +154,12 @@
             <RowTemplate>
                 <MudTd DataLabel="Platform">@context.Item1</MudTd>
                 <MudTd DataLabel="Records">@context.Item2.Count</MudTd>
-                <MudTd DataLabel="Timestamp"><BlazorTime.ToLocal DateTime="@context.Item2.Timestamp.GetValueOrDefault().UtcDateTime" /></MudTd>
+                <MudTd DataLabel="Timestamp">
+                    @if (context.Item2.Timestamp.HasValue)
+                    {
+                        <BlazorTime.ToLocal DateTime="@context.Item2.Timestamp.Value.UtcDateTime" />
+                    }
+                </MudTd>
                 <MudTd DataLabel="Details">@context.Item2.Error</MudTd>
             </RowTemplate>
             <FooterContent>

@@ -10,8 +10,51 @@ using TMTurboRecords.Shared;
 using System.Net;
 using TMTurboRecords.Shared.Models;
 using Microsoft.AspNetCore.HttpOverrides;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Logs;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddOpenTelemetry(options =>
+{
+    options.IncludeScopes = true;
+    options.IncludeFormattedMessage = true;
+});
+
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(x =>
+    {
+        x.AddRuntimeInstrumentation()
+            .AddProcessInstrumentation()
+            .AddMeter("Microsoft.AspNetCore.Hosting")
+            .AddMeter("Microsoft.AspNetCore.Server.Kestrel")
+            .AddMeter("Microsoft.AspNetCore.Http.Connections")
+            .AddMeter("Microsoft.AspNetCore.Routing")
+            .AddMeter("Microsoft.AspNetCore.Diagnostics")
+            .AddMeter("Microsoft.AspNetCore.RateLimiting")
+            .AddMeter("System.Net.Http");
+    })
+    .WithTracing(x =>
+    {
+        if (builder.Environment.IsDevelopment())
+        {
+            x.SetSampler<AlwaysOnSampler>();
+        }
+
+        x.AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation();
+    });
+
+var otlpExporterEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+
+if (!string.IsNullOrWhiteSpace(otlpExporterEndpoint))
+{
+    builder.Services.Configure<OpenTelemetryLoggerOptions>(options => options.AddOtlpExporter());
+    builder.Services.ConfigureOpenTelemetryMeterProvider(options => options.AddOtlpExporter());
+    builder.Services.ConfigureOpenTelemetryTracerProvider(options => options.AddOtlpExporter());
+}
+
 
 builder.Services.AddResponseCompression(options =>
 {

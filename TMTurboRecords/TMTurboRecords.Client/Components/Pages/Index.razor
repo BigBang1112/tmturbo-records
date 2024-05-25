@@ -37,7 +37,11 @@
         PlatformQueryToPlatforms(PlatformQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
-    var commitUrl = $"{ThisAssembly.Git.RepositoryUrl.Substring(0, ThisAssembly.Git.RepositoryUrl.Length - 4)}/tree/{ThisAssembly.Git.Sha}";
+    var baseUrl = ThisAssembly.Git.RepositoryUrl.EndsWith(".git")
+        ? ThisAssembly.Git.RepositoryUrl.Substring(0, ThisAssembly.Git.RepositoryUrl.Length - 4)
+        : ThisAssembly.Git.RepositoryUrl;
+
+    var commitUrl = $"{baseUrl}/tree/{ThisAssembly.Git.Sha}";
 }
 
 <MudContainer MaxWidth="MaxWidth.Medium">

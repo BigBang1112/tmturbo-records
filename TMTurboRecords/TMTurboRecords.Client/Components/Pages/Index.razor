@@ -37,7 +37,7 @@
         PlatformQueryToPlatforms(PlatformQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
-    var commitUrl = $"{ThisAssembly.Git.Url}/{ThisAssembly.Git.Commit}";
+    var commitUrl = $"{ThisAssembly.Git.RepositoryUrl.Substring(0, ThisAssembly.Git.RepositoryUrl.Length - 4)}/tree/{ThisAssembly.Git.Sha}";
 }
 
 <MudContainer MaxWidth="MaxWidth.Medium">

@@ -2,7 +2,10 @@ FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 ARG BUILD_CONFIGURATION=Release
 ARG TARGETARCH=x64
 ARG APPNAME=TMTurboRecords
+RUN apk add --no-cache git
 WORKDIR /src
+
+COPY .git/ ./.git/
 
 # copy csproj and restore as distinct layers
 COPY $APPNAME/$APPNAME/*.csproj $APPNAME/
@@ -12,8 +15,7 @@ RUN dotnet restore $APPNAME/$APPNAME.csproj -a $TARGETARCH
 
 # copy and publish app and libraries
 COPY $APPNAME/ .
-WORKDIR /src/$APPNAME
-RUN dotnet publish -c $BUILD_CONFIGURATION -a $TARGETARCH -o /app --no-restore
+RUN dotnet publish $APPNAME -c $BUILD_CONFIGURATION -a $TARGETARCH -o /app --no-restore
 
 
 # final stage/image

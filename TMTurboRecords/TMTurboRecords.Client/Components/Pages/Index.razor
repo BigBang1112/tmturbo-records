@@ -76,7 +76,7 @@
                              Label="Map"
                              Variant="Variant.Filled"
                              SearchFunc="SearchMapsAsync"
-                             MaxItems="50"></MudAutocomplete>
+                             MaxItems="int.MaxValue"></MudAutocomplete>
             <MudTextField ValueChanged="MapUidChangedAsync"
                           Value="MapUid"
                           T="string"
@@ -89,7 +89,18 @@
                              Variant="Variant.Filled"
                              Placeholder="World"
                              SearchFunc="SearchZonesAsync"
-                             MaxItems="50"></MudAutocomplete>
+                             MaxItems="int.MaxValue"></MudAutocomplete>
+            <MudStack Justify="Justify.FlexEnd" Spacing="1">
+                <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small">
+                    <MudTooltip Text="Previous zone">
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PrevZoneAsync"></MudIconButton>
+                    </MudTooltip>
+                    <MudTooltip Text="Next zone">
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextZoneAsync"></MudIconButton>
+                    </MudTooltip>
+                </MudButtonGroup>
+                <MudText Typo="Typo.body2">Switch zones</MudText>
+            </MudStack>
         </MudStack>
         <MudDivider />
         <MudDataGrid Items="@Records" Filterable="false" Hover="false" Dense="true" Virtualize="true" Breakpoint="Breakpoint.None" Loading="@TableLoading" LoadingProgressColor="Color.Info">
@@ -248,12 +259,14 @@
         Zones ??= await Http.GetFromJsonAsync<Dictionary<string, Zone>>("api/v1/zones") ?? [];
 
         // if text is null or empty, show complete list
-        if (string.IsNullOrEmpty(value))
-        {
+        /*if (string.IsNullOrEmpty(value))
+            {
             return Zones.Select(x => x.Key);
         }
 
-        return Zones.Where(x => x.Key.Contains(value, StringComparison.InvariantCultureIgnoreCase)).Select(x => x.Key);
+        return Zones.Where(x => x.Key.Contains(value, StringComparison.InvariantCultureIgnoreCase)).Select(x => x.Key);*/
+
+        return Zones.Select(x => x.Key);
     }
 
     private Task<IEnumerable<string>> SearchMapsAsync(string value)
@@ -288,6 +301,68 @@
         ChangeNavigation();
 
         //LocalStorage.SetItem("Platforms", Platforms);
+
+        CheckRecords();
+    }
+
+    public async Task NextZoneAsync()
+    {
+        Zones ??= await Http.GetFromJsonAsync<Dictionary<string, Zone>>("api/v1/zones") ?? [];
+
+        if (Zones.Count < 2)
+        {
+            return;
+        }
+
+        var keys = Zones.Keys.ToArray();
+
+        if (string.IsNullOrWhiteSpace(Zone))
+        {
+            Zone = keys[1];
+            return;
+        }
+
+        var index = Array.IndexOf(keys, Zone);
+
+        if (index == keys.Length - 1)
+        {
+            Zone = keys[0];
+        }
+        else
+        {
+            Zone = keys[index + 1];
+        }
+
+        CheckRecords();
+    }
+
+    public async Task PrevZoneAsync()
+    {
+        Zones ??= await Http.GetFromJsonAsync<Dictionary<string, Zone>>("api/v1/zones") ?? [];
+
+        if (Zones.Count < 2)
+        {
+            return;
+        }
+
+        var keys = Zones.Keys.ToArray();
+
+        if (string.IsNullOrWhiteSpace(Zone))
+        {
+            Zone = keys[keys.Length - 1];
+            return;
+        }
+
+        var index = Array.IndexOf(keys, Zone);
+
+        if (index == 0)
+        {
+            Zone = keys[keys.Length - 1];
+        }
+        else
+        {
+            Zone = keys[index - 1];
+        }
 
         CheckRecords();
     }

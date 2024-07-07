@@ -319,6 +319,7 @@
         if (string.IsNullOrWhiteSpace(Zone))
         {
             Zone = keys[1];
+            CheckRecords();
             return;
         }
 
@@ -350,6 +351,7 @@
         if (string.IsNullOrWhiteSpace(Zone))
         {
             Zone = keys[keys.Length - 1];
+            CheckRecords();
             return;
         }
 

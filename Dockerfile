@@ -1,11 +1,13 @@
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 ARG TARGETARCH=x64
 ARG APPNAME=TMTurboRecords
-RUN apk add --no-cache git
+RUN apt-get update && apt-get install -y git python3
 WORKDIR /src
 
 COPY .git/ ./.git/
+
+RUN dotnet workload install wasm-tools
 
 # copy csproj and restore as distinct layers
 COPY $APPNAME/$APPNAME/*.csproj $APPNAME/
@@ -19,7 +21,7 @@ RUN dotnet publish $APPNAME -c $BUILD_CONFIGURATION -a $TARGETARCH -o /app --no-
 
 
 # final stage/image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 EXPOSE 8080
 EXPOSE 8081
 WORKDIR /app

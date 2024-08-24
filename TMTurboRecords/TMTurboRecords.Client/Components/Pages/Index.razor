@@ -1,4 +1,5 @@
 ﻿@page "/{map:nonfile?}/{zone?}"
+@using System.Globalization
 @rendermode InteractiveWebAssembly
 
 @inject HttpClient Http
@@ -122,7 +123,7 @@
                         </MudStack>
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Platform (rank)">
+                <TemplateColumn Title="Platform (rank) (SP)">
                     <CellTemplate>
                         <MudStack AlignItems="AlignItems.Center" Row>
                             @switch (context.Item.Record.Platform)
@@ -143,7 +144,7 @@
                                     </MudTooltip>
                                     break;
                             }
-                            <MudText Typo="Typo.body2">(@context.Item.Record.PlatformRank)</MudText>
+                            <MudText Typo="Typo.body2">(@context.Item.Record.PlatformRank) (@context.Item.Record.GetSkillpoints(PlatformResponses[context.Item.Record.Platform.ToString()].Count.GetValueOrDefault()).ToString("n", thousands))</MudText>
                         </MudStack>
                     </CellTemplate>
                 </TemplateColumn>
@@ -253,6 +254,8 @@
     public RecordParameters? RequestParameters { get; set; }
 
     private CancellationTokenSource? recordRequestTokenSource;
+
+    private NumberFormatInfo thousands = new() { NumberGroupSeparator = " ", NumberDecimalDigits = 0 };
 
     private async Task<IEnumerable<string>> SearchZonesAsync(string value)
     {

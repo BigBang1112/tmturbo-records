@@ -21,7 +21,7 @@ RUN dotnet publish $APPNAME -c $BUILD_CONFIGURATION -a $TARGETARCH -o /app --no-
 
 
 # final stage/image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-noble-chiseled
 EXPOSE 8080
 EXPOSE 8081
 WORKDIR /app

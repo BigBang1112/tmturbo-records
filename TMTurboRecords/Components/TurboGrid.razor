@@ -1,0 +1,25 @@
+﻿<div class="main">
+    @for (var i = 0; i < EnvironmentDifficulties; i++)
+    {
+        <div class="environment-difficulty">
+            @for (var j = 0; j < 10; j++)
+            {
+                var num = j + 1 + (ContinueNumbering ? (i * 10) : 0);
+
+                <a href="@num.ToString("000")" class="map">
+                    <div class="map-inner">
+                        @num
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int EnvironmentDifficulties { get; set; } = 20;
+
+    [Parameter]
+    public bool ContinueNumbering { get; set; } = true;
+}

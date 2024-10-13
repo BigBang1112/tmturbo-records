@@ -1,0 +1,23 @@
+﻿@page "/{map:nonfile?}/{zone?}"
+
+<PageTitle>Home</PageTitle>
+
+<h1>Hello, world!</h1>
+
+Welcome to your new app.
+
+<main>
+    <div style="display: grid; gap: 30px">
+        <TurboGrid></TurboGrid>
+        <TurboGrid EnvironmentDifficulties="4" ContinueNumbering="false"></TurboGrid>
+    </div>
+    <Leaderboard></Leaderboard>
+</main>
+
+@code {
+    [Parameter]
+    public string? Map { get; set; }
+
+    [Parameter]
+    public string? Zone { get; set; }
+}

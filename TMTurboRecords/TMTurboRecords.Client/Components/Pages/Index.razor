@@ -48,7 +48,7 @@
 <MudContainer MaxWidth="MaxWidth.Medium">
     <MudStack>
         <MudText Typo="Typo.h4">Trackmania Turbo Records</MudText>
-        <MudText>An open source remake of the <MudLink Href="https://maschell.de/tmt_rankings.php">Maschell TMT rankings</MudLink> site. Type the map number/UID to load the records.</MudText>
+        <MudText>An open source remake of the <MudLink Href="https://maschell.de/tmt_rankings.php">Maschell TMT rankings</MudLink> site. Type the map number/UID to load the records. <MudLink Href="https://github.com/BigBang1112/tmturbo-records/pull/4">V2 is coming!</MudLink></MudText>
         <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
             <MudChipSet @key=chipSetKey SelectedChipsChanged="SelectedPlatformsChangedAsync" Filter="true" MultiSelection="true">
                 <MudChip Icon="fas fa-computer" CheckedIcon="fas fa-computer" Text="pc" SelectedColor="Color.Primary" Default="(Platforms & Platform.PC) != 0">&nbsp;&nbsp;PC</MudChip>

@@ -1,0 +1,29 @@
+﻿.main {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    align-content: start;
+}
+
+.environment-difficulty {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.map {
+    display: flex;
+    text-decoration: none;
+    font-size: 120%;
+    font-weight: bold;
+}
+
+.map-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid black;
+    width: 100%;
+    margin: 1px;
+    height: 40px;
+    border-radius: 3px;
+}

@@ -6,8 +6,11 @@
             {
                 var num = j + 1 + (ContinueNumbering ? (i * 10) : 0);
                 var numStr = num.ToString("000");
+                var envDiffIndex = i; // event sending issue
 
-                <a href="@numStr" class="map">
+                <a href="@numStr" class="map"
+                    @onclick="() => OnMapClick.InvokeAsync(new MapBox(envDiffIndex, num))"
+                    @onmouseenter="() => OnMapHover.InvokeAsync(new MapBox(envDiffIndex, num))">
                     <div class="map-inner">
                         @num
                     </div>
@@ -23,4 +26,10 @@
 
     [Parameter]
     public bool ContinueNumbering { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<MapBox> OnMapClick { get; set; }
+
+    [Parameter]
+    public EventCallback<MapBox> OnMapHover { get; set; }
 }

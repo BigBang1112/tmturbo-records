@@ -1,3 +1,4 @@
+using TMTurboRecords;
 using TMTurboRecords.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -5,6 +6,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddWebServices();
 builder.Services.AddTelemetryServices(builder.Configuration, builder.Environment);
+
+builder.Services.AddHostedService<InitHostedService>();
 
 var app = builder.Build();
 

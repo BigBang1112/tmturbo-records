@@ -1,8 +1,72 @@
-﻿<div style="height:600px;background: green">
-    <h3>Leaderboard</h3>
-    nice
+﻿@inject AggregatedMasterServerTMT AggregatedMasterServer
+
+<div style="height:600px;background: green">
+    @if (Map is null)
+    {
+        <h3>No map selected</h3>
+    }
+    else
+    {
+        if (previousMap != Map)
+        {
+            isThumbnailLoading = true;
+            previousMap = Map;
+        }
+
+        <h2 style="display: inline;">@Map</h2>
+        <img style="float: right; @(isThumbnailLoading ? "opacity: 0" : "")" alt="Loading"
+        src="https://tmturbo-prod-ps4-maps.s3.eu-west-1.amazonaws.com/@(KnownMaps.ByName[Map]).jpg"
+        @onload="() => isThumbnailLoading = false"
+        width="96" height="96" />
+        <p>@KnownMaps.ByName[Map]</p>
+    }
+
+    <div class="leaderboard">
+        @if (recordsResponse is null)
+        {
+            <p>Loading...</p>
+        }
+        else
+        {
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Count</th>
+                        <th>Platform</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var record in recordsResponse.Summaries[0].Scores)
+                    {
+                        <tr>
+                            <td>@record.Score</td>
+                            <td>@record.Count</td>
+                            <td>@record.Platform</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
 </div>
 
 @code {
+    private bool isThumbnailLoading;
+    private string? previousMap;
 
+    private AggregatedSummaryResponse<TimeInt32>? recordsResponse;
+
+    [Parameter]
+    public string? Map { get; set; }
+
+    public async Task LoadAsync(string map)
+    {
+        var mapUid = KnownMaps.ByName[map];
+
+        recordsResponse = await AggregatedMasterServer.GetMapLeaderBoardSummariesResponseAsync(mapUid);
+
+        // nefunguje
+        await InvokeAsync(StateHasChanged);
+    }
 }

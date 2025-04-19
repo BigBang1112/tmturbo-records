@@ -1,4 +1,7 @@
-﻿@page "/{map:nonfile?}/{zone?}"
+﻿@page "/{SelectedMap:nonfile?}/{Zone?}"
+@rendermode InteractiveServer
+
+@inject IServiceScopeFactory ServiceScopeFactory
 
 <PageTitle>Home</PageTitle>
 
@@ -8,16 +11,48 @@ Welcome to your new app.
 
 <main>
     <div style="display: grid; gap: 30px">
-        <TurboGrid></TurboGrid>
-        <TurboGrid EnvironmentDifficulties="4" ContinueNumbering="false"></TurboGrid>
+        <TurboGrid OnMapClick="box => leaderboard?.LoadAsync(GetMapName(box))" OnMapHover="box => TrySetMap(box)"></TurboGrid>
+        <TurboGrid OnMapClick="box => leaderboard?.LoadAsync(GetMapName(box, isVr: true))" OnMapHover="box => TrySetMap(box, isVr: true)" EnvironmentDifficulties="4" ContinueNumbering="false"></TurboGrid>
     </div>
-    <Leaderboard></Leaderboard>
+    <Leaderboard @ref="leaderboard" Map="@(SelectedMap ?? Map)"></Leaderboard>
 </main>
 
 @code {
+    private Leaderboard? leaderboard;
+
     [Parameter]
     public string? Map { get; set; }
 
     [Parameter]
     public string? Zone { get; set; }
+
+    [Parameter]
+    public string? SelectedMap { get; set; }
+
+    private string GetMapName(MapBox mapBox, bool isVr = false)
+    {
+        if (isVr)
+        {
+            var env = mapBox.EnvironmentDifficulty switch
+            {
+                0 => "Canyon",
+                1 => "Valley",
+                2 => "Lagoon",
+                3 => "Stadium",
+                _ => throw new Exception("Invalid environment difficulty")
+            };
+
+            return $"VR_{env}_{mapBox.MapNumber:000}";
+        }
+
+        return mapBox.MapNumber.ToString("000");
+    }
+
+    private void TrySetMap(MapBox mapBox, bool isVr = false)
+    {
+        if (string.IsNullOrWhiteSpace(SelectedMap))
+        {
+            Map = GetMapName(mapBox, isVr);
+        }
+    }
 }

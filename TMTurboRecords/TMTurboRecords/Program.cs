@@ -13,48 +13,58 @@ using Microsoft.AspNetCore.HttpOverrides;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Logs;
+using Serilog;
+using Serilog.Sinks.SystemConsole.Themes;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Logging.AddOpenTelemetry(options =>
-{
-    options.IncludeScopes = true;
-    options.IncludeFormattedMessage = true;
-});
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console(theme: AnsiConsoleTheme.Sixteen, applyThemeToRedirectedOutput: true)
+    .WriteTo.OpenTelemetry(options =>
+    {
+        options.Endpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+        options.Protocol = builder.Configuration["OTEL_EXPORTER_OTLP_PROTOCOL"]?.ToLowerInvariant() switch
+        {
+            "grpc" => Serilog.Sinks.OpenTelemetry.OtlpProtocol.Grpc,
+            "http/protobuf" or null or "" => Serilog.Sinks.OpenTelemetry.OtlpProtocol.HttpProtobuf,
+            _ => throw new NotSupportedException($"OTLP protocol {builder.Configuration["OTEL_EXPORTER_OTLP_PROTOCOL"]} is not supported")
+        };
+        options.Headers = builder.Configuration["OTEL_EXPORTER_OTLP_HEADERS"]?
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Split('=', 2, StringSplitOptions.RemoveEmptyEntries))
+            .ToDictionary(x => x[0], x => x[1]) ?? [];
+    })
+    .CreateLogger();
+
+builder.Services.AddSerilog();
 
 builder.Services.AddOpenTelemetry()
-    .WithMetrics(x =>
+    .WithMetrics(options =>
     {
-        x.AddRuntimeInstrumentation()
+        options
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation()
             .AddProcessInstrumentation()
-            .AddMeter("Microsoft.AspNetCore.Hosting")
-            .AddMeter("Microsoft.AspNetCore.Server.Kestrel")
-            .AddMeter("Microsoft.AspNetCore.Http.Connections")
-            .AddMeter("Microsoft.AspNetCore.Routing")
-            .AddMeter("Microsoft.AspNetCore.Diagnostics")
-            .AddMeter("Microsoft.AspNetCore.RateLimiting")
-            .AddMeter("System.Net.Http");
+            .AddOtlpExporter();
+
+        options.AddMeter("System.Net.Http");
     })
-    .WithTracing(x =>
+    .WithTracing(options =>
     {
         if (builder.Environment.IsDevelopment())
         {
-            x.SetSampler<AlwaysOnSampler>();
+            options.SetSampler<AlwaysOnSampler>();
         }
 
-        x.AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation();
+        options
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter();
     });
-
-var otlpExporterEndpoint = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
-
-if (!string.IsNullOrWhiteSpace(otlpExporterEndpoint))
-{
-    builder.Services.Configure<OpenTelemetryLoggerOptions>(options => options.AddOtlpExporter());
-    builder.Services.ConfigureOpenTelemetryMeterProvider(options => options.AddOtlpExporter());
-    builder.Services.ConfigureOpenTelemetryTracerProvider(options => options.AddOtlpExporter());
-}
-
+builder.Services.AddMetrics();
 
 builder.Services.AddResponseCompression(options =>
 {

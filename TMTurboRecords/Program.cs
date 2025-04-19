@@ -1,10 +1,10 @@
-using TMTurboRecords.Components;
+using TMTurboRecords.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+builder.Services.AddWebServices();
+builder.Services.AddTelemetryServices(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
 
@@ -16,13 +16,8 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
-
-
-app.UseAntiforgery();
-
-app.MapStaticAssets();
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+app.UseSecurityMiddleware();
+app.UseAuthMiddleware();
+app.UseEndpointMiddleware();
 
 app.Run();

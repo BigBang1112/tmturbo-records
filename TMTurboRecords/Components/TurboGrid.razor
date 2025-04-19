@@ -5,8 +5,9 @@
             @for (var j = 0; j < 10; j++)
             {
                 var num = j + 1 + (ContinueNumbering ? (i * 10) : 0);
+                var numStr = num.ToString("000");
 
-                <a href="@num.ToString("000")" class="map">
+                <a href="@numStr" class="map">
                     <div class="map-inner">
                         @num
                     </div>
